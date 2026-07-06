@@ -60,11 +60,50 @@ chmod +x install.sh
 
 ## Usage
 
-Start the browser simply by executing:
+By default, executing `md-browser` launches the application as a **daemon running in the background**, so your terminal is immediately freed.
 
+### Start the Browser
 ```bash
+# Starts the browser in the background (default)
 md-browser
+
+# Run in the foreground instead of daemonizing
+md-browser -foreground
 ```
+
+### Stop the Browser
+```bash
+# Stops the currently running background instance on default port 8080
+md-browser -stop
+
+# Stops the background instance on a custom port
+md-browser -stop -port 8081
+```
+
+### Check Running Status
+To check all running instances on your system:
+```bash
+md-browser -status
+```
+Example Output:
+```
+Running md-browser instances:
+  • PID: 683496 | Port: 8080 | Directory: /home/bas/documents
+  • PID: 683512 | Port: 8081 | Directory: /home/bas/projects
+```
+
+### View Server Logs
+To print the startup and runtime output logs for a background instance:
+```bash
+# View logs for default port 8080
+md-browser -show-logs
+
+# View logs for a custom port
+md-browser -show-logs -port 8081
+```
+
+### Port Conflict Resolution
+If the configured port (default `8080`) is already in use, `md-browser` will automatically detect the conflict, scout for the next free port (e.g. `8081`), notify you on the terminal, and bind to it seamlessly.
 
 ### Command Line Flags
 
@@ -76,6 +115,10 @@ Customize the browser using standard command line options:
 | `-port` | `8080` | Port to run the HTTP server on. |
 | `-refresh-interval` | `5` | Active background rate (in seconds) to query filetree updates. |
 | `-disable-open` | `false` | Turn off automatic web browser launch on system startup. |
+| `-foreground` | `false` | Run the web server in the foreground instead of background daemonizing. |
+| `-stop` | `false` | Stop the currently running background instance of the Markdown Browser. |
+| `-show-logs` | `false` | Show logs of the background Markdown Browser instance on the specified port. |
+| `-status` | `false` | Show currently running Markdown Browser instances (including PID, port, and root directory). |
 
 #### Examples:
 ```bash
