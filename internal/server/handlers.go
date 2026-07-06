@@ -14,10 +14,11 @@ import (
 )
 
 type FileItem struct {
-	Name  string `json:"name"`
-	Path  string `json:"path"`
-	IsDir bool   `json:"is_dir"`
-	Size  int64  `json:"size"`
+	Name    string `json:"name"`
+	Path    string `json:"path"`
+	IsDir   bool   `json:"is_dir"`
+	Size    int64  `json:"size"`
+	HasNoMD bool   `json:"has_no_md,omitempty"`
 }
 
 // safePath validates and returns the absolute target path within the root directory.
@@ -36,6 +37,32 @@ func (s *Server) safePath(userPath string) (string, error) {
 	}
 
 	return targetPath, nil
+}
+
+// hasMDFiles checks recursively if a directory contains any Markdown files.
+func hasMDFiles(dirPath string) bool {
+	entries, err := os.ReadDir(dirPath)
+	if err != nil {
+		return false
+	}
+	for _, entry := range entries {
+		name := entry.Name()
+		// Skip hidden files/directories (starting with dot)
+		if strings.HasPrefix(name, ".") {
+			continue
+		}
+		if entry.IsDir() {
+			if hasMDFiles(filepath.Join(dirPath, name)) {
+				return true
+			}
+		} else {
+			ext := strings.ToLower(filepath.Ext(name))
+			if ext == ".md" || ext == ".markdown" {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // handleList lists files in the given directory path.
@@ -90,11 +117,17 @@ func (s *Server) handleList(w http.ResponseWriter, r *http.Request) {
 		// Get relative path of this item
 		relPath := filepath.Join(userPath, name)
 
+		var hasNoMD bool
+		if isDir {
+			hasNoMD = !hasMDFiles(filepath.Join(targetDir, name))
+		}
+
 		items = append(items, FileItem{
-			Name:  name,
-			Path:  relPath,
-			IsDir: isDir,
-			Size:  size,
+			Name:    name,
+			Path:    relPath,
+			IsDir:   isDir,
+			Size:    size,
+			HasNoMD: hasNoMD,
 		})
 	}
 
@@ -234,4 +267,36 @@ func isBinaryFile(path string) (bool, int64, error) {
 	}
 
 	return false, size, nil
+}
+
+// handleRaw serves a raw static file (e.g., images, diagrams) securely.
+func (s *Server) handleRaw(w http.ResponseWriter, r *http.Request) {
+	userPath := r.URL.Query().Get("path")
+	if userPath == "" {
+		http.Error(w, "Path is required", http.StatusBadRequest)
+		return
+	}
+
+	targetFile, err := s.safePath(userPath)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusForbidden)
+		return
+	}
+
+	info, err := os.Stat(targetFile)
+	if err != nil {
+		if os.IsNotExist(err) {
+			http.Error(w, "File not found", http.StatusNotFound)
+		} else {
+			http.Error(w, fmt.Sprintf("Failed to access file: %v", err), http.StatusInternalServerError)
+		}
+		return
+	}
+
+	if info.IsDir() {
+		http.Error(w, "Path is a directory", http.StatusBadRequest)
+		return
+	}
+
+	http.ServeFile(w, r, targetFile)
 }

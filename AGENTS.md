@@ -12,6 +12,8 @@ This is a golang application which starts up a webserver on localhost. This webs
 - **GitHub Markdown Styling**: To match GitHub's exact styling, link the GitHub Markdown Light CSS (e.g., `https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.8.1/github-markdown-light.min.css`) and wrap the parsed HTML content inside a container with class `markdown-body` on a clean, light-themed sheet layout, while keeping the rest of the application interface dark.
 - **Go Markdown Parsing**: Use `github.com/yuin/goldmark` with GFM extensions (`extension.GFM`) to perform standard-compliant markdown rendering in Go, rather than legacy packages like `blackfriday`.
 - **Read-Only**: The application is strictly a read-only viewer. Do not implement any editing, writing, or deleting functionality on the filesystem.
+- **Serving Local Assets**: Serve local assets (such as images, diagrams, or assets linked inside Markdown documents) securely. Translate relative references relative to the active document's parent directory and route requests through the safe-path traversal verification check before delivery.
+- **Empty Directories UI**: When "Show all files" is disabled, any subdirectory containing no GFM Markdown files must display `(no md)` inline next to the directory name in italicized, muted text, and standard nested empty labels within them must be hidden.
 
 # Architecture & Tech Stack
 
@@ -26,6 +28,6 @@ This is a golang application which starts up a webserver on localhost. This webs
 
 - Initialize Go module: `go mod init github.com/bvankampen/md-browser`
 - Tidy dependencies: `go mod tidy`
-- Run application: `go run .`
+- Run application: `go run ./cmd/md-browser`
 - Run tests: `go test ./...`
 - Format code: `go fmt ./...`

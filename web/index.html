@@ -545,6 +545,17 @@
             nameLabel.innerText = item.name;
             row.appendChild(nameLabel);
 
+            if (item.is_dir && !toggleAllCheckbox.checked && item.has_no_md) {
+                const emptyLabel = document.createElement('span');
+                emptyLabel.className = 'no-md-label';
+                emptyLabel.style.color = 'var(--text-muted)';
+                emptyLabel.style.fontSize = '0.8rem';
+                emptyLabel.style.fontStyle = 'italic';
+                emptyLabel.style.marginLeft = '6px';
+                emptyLabel.innerText = '(no md)';
+                row.appendChild(emptyLabel);
+            }
+
             node.appendChild(row);
 
             // If folder, add children container
@@ -627,13 +638,15 @@
                 // If no new items, display (empty) and remove all existing nodes
                 if (newItems.length === 0) {
                     container.innerHTML = '';
-                    const emptyDiv = document.createElement('div');
-                    emptyDiv.style.padding = '6px 12px';
-                    emptyDiv.style.fontSize = '0.85rem';
-                    emptyDiv.style.color = 'var(--text-muted)';
-                    emptyDiv.style.fontStyle = 'italic';
-                    emptyDiv.innerText = '(empty)';
-                    container.appendChild(emptyDiv);
+                    if (showAll || container === treeContainer) {
+                        const emptyDiv = document.createElement('div');
+                        emptyDiv.style.padding = '6px 12px';
+                        emptyDiv.style.fontSize = '0.85rem';
+                        emptyDiv.style.color = 'var(--text-muted)';
+                        emptyDiv.style.fontStyle = 'italic';
+                        emptyDiv.innerText = '(empty)';
+                        container.appendChild(emptyDiv);
+                    }
                     return;
                 }
 
@@ -651,6 +664,31 @@
                         if (activePath && item.path === activePath) {
                             const row = node.querySelector('.tree-row');
                             if (row) row.classList.add('active');
+                        }
+
+                        // Update empty-label dynamically
+                        if (item.is_dir) {
+                            const row = node.querySelector('.tree-row');
+                            if (row) {
+                                let emptyLabel = row.querySelector('.no-md-label');
+                                const showEmpty = !toggleAllCheckbox.checked && item.has_no_md;
+                                if (showEmpty) {
+                                    if (!emptyLabel) {
+                                        emptyLabel = document.createElement('span');
+                                        emptyLabel.className = 'no-md-label';
+                                        emptyLabel.style.color = 'var(--text-muted)';
+                                        emptyLabel.style.fontSize = '0.8rem';
+                                        emptyLabel.style.fontStyle = 'italic';
+                                        emptyLabel.style.marginLeft = '6px';
+                                        emptyLabel.innerText = '(no md)';
+                                        row.appendChild(emptyLabel);
+                                    }
+                                } else {
+                                    if (emptyLabel) {
+                                        row.removeChild(emptyLabel);
+                                    }
+                                }
+                            }
                         }
 
                         // If it's a directory and it is expanded, recursively reconcile its children
@@ -679,13 +717,15 @@
 
                 // If container became empty, add (empty) label
                 if (container.children.length === 0) {
-                    const emptyDiv = document.createElement('div');
-                    emptyDiv.style.padding = '6px 12px';
-                    emptyDiv.style.fontSize = '0.85rem';
-                    emptyDiv.style.color = 'var(--text-muted)';
-                    emptyDiv.style.fontStyle = 'italic';
-                    emptyDiv.innerText = '(empty)';
-                    container.appendChild(emptyDiv);
+                    if (showAll || container === treeContainer) {
+                        const emptyDiv = document.createElement('div');
+                        emptyDiv.style.padding = '6px 12px';
+                        emptyDiv.style.fontSize = '0.85rem';
+                        emptyDiv.style.color = 'var(--text-muted)';
+                        emptyDiv.style.fontStyle = 'italic';
+                        emptyDiv.innerText = '(empty)';
+                        container.appendChild(emptyDiv);
+                    }
                 }
             } catch (err) {
                 console.error('Error reconciling directory:', err);
@@ -711,13 +751,15 @@
                 });
 
                 if (items.length === 0) {
-                    const emptyDiv = document.createElement('div');
-                    emptyDiv.style.padding = '6px 12px';
-                    emptyDiv.style.fontSize = '0.85rem';
-                    emptyDiv.style.color = 'var(--text-muted)';
-                    emptyDiv.style.fontStyle = 'italic';
-                    emptyDiv.innerText = '(empty)';
-                    container.appendChild(emptyDiv);
+                    if (showAll || container === treeContainer) {
+                        const emptyDiv = document.createElement('div');
+                        emptyDiv.style.padding = '6px 12px';
+                        emptyDiv.style.fontSize = '0.85rem';
+                        emptyDiv.style.color = 'var(--text-muted)';
+                        emptyDiv.style.fontStyle = 'italic';
+                        emptyDiv.innerText = '(empty)';
+                        container.appendChild(emptyDiv);
+                    }
                     return;
                 }
 
@@ -812,6 +854,42 @@
                 .replace(/'/g, '&#039;');
         }
 
+        // Helper to get parent directory of a path
+        function getParentDir(path) {
+            if (!path) return '';
+            const lastSlash = path.lastIndexOf('/');
+            if (lastSlash === -1) return '';
+            return path.substring(0, lastSlash);
+        }
+
+        // Helper to resolve relative path from baseDir
+        function resolveRelativePath(baseDir, relPath) {
+            if (relPath.startsWith('/')) {
+                relPath = relPath.substring(1);
+                baseDir = '';
+            }
+            const parts = (baseDir ? baseDir.split('/') : []).concat(relPath.split('/'));
+            const resolved = [];
+            for (const part of parts) {
+                if (part === '' || part === '.') {
+                    continue;
+                }
+                if (part === '..') {
+                    if (resolved.length > 0) {
+                        resolved.pop();
+                    }
+                } else {
+                    resolved.push(part);
+                }
+            }
+            return resolved.join('/');
+        }
+
+        // Helper to identify if URL is external
+        function isExternalUrl(url) {
+            return /^(https?:|data:|mailto:|tel:)/i.test(url);
+        }
+
         function collapseAll() {
             const children = treeContainer.querySelectorAll('.tree-children.expanded');
             children.forEach(el => {
@@ -852,6 +930,16 @@
                     `;
                 } else if (data.is_markdown) {
                     markdownContent.innerHTML = `<div class="markdown-body">${data.html}</div>`;
+
+                    // Process images inside markdown to serve local assets securely
+                    const docDir = getParentDir(data.path);
+                    markdownContent.querySelectorAll('.markdown-body img').forEach((img) => {
+                        const src = img.getAttribute('src');
+                        if (src && !isExternalUrl(src)) {
+                            const resolved = resolveRelativePath(docDir, src);
+                            img.src = `/api/raw?path=${encodeURIComponent(resolved)}`;
+                        }
+                    });
 
                     // Run syntax highlighting on code blocks inside markdown
                     if (window.hljs) {
