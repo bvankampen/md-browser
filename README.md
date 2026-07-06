@@ -2,6 +2,8 @@
 
 A high-performance, responsive, and beautiful local Markdown and source code browser built in Go and HTML/JS. It lets you instantly navigate, read, and render local Markdown files and code repositories inside a modern dual-pane web application with **GitHub Markdown Light** styling.
 
+![Screenshot](docs/screenshot.png)
+
 ---
 
 ## Key Features
@@ -53,6 +55,7 @@ chmod +x install.sh
 ```
 
 ### Dynamic Install Targets
+
 - If `$GO_PATH` or `$GOPATH` exists, the script compiles and installs the binary to `$GOPATH/bin`.
 - If no Go paths are detected, it falls back to installing under `/usr/local/bin` (and prompts for `sudo` elevation if write permissions are required).
 
@@ -63,6 +66,7 @@ chmod +x install.sh
 By default, executing `md-browser` launches the application as a **daemon running in the background**, so your terminal is immediately freed.
 
 ### Start the Browser
+
 ```bash
 # Starts the browser in the background (default)
 md-browser
@@ -72,6 +76,7 @@ md-browser -foreground
 ```
 
 ### Stop the Browser
+
 ```bash
 # Stops ALL currently running background instances collectively
 md-browser -stop
@@ -81,11 +86,15 @@ md-browser -stop -port 8085
 ```
 
 ### Check Running Status
+
 To check all running instances on your system:
+
 ```bash
 md-browser -status
 ```
+
 Example Output:
+
 ```
 Running md-browser instances:
   • PID: 683496 | Port: 8080 | Directory: /home/bas/documents
@@ -93,7 +102,9 @@ Running md-browser instances:
 ```
 
 ### View Server Logs
+
 To print the startup and runtime output logs for a background instance:
+
 ```bash
 # View logs for default port 8080
 md-browser -show-logs
@@ -111,18 +122,19 @@ md-browser -show-logs -port 8081
 
 Customize the browser using standard command line options:
 
-| Flag | Default | Description |
-|---|---|---|
-| `-dir` / `-directory` | `.` | Root directory path on disk to browse and serve. |
-| `-port` | `8080` | Port to run the HTTP server on. |
-| `-refresh-interval` | `5` | Active background rate (in seconds) to query filetree updates. |
-| `-disable-open` | `false` | Turn off automatic web browser launch on system startup. |
-| `-foreground` | `false` | Run the web server in the foreground instead of background daemonizing. |
-| `-stop` | `false` | Stop the currently running background instance of the Markdown Browser. |
-| `-show-logs` | `false` | Show logs of the background Markdown Browser instance on the specified port. |
-| `-status` | `false` | Show currently running Markdown Browser instances (including PID, port, and root directory). |
+| Flag                  | Default | Description                                                                                  |
+| --------------------- | ------- | -------------------------------------------------------------------------------------------- |
+| `-dir` / `-directory` | `.`     | Root directory path on disk to browse and serve.                                             |
+| `-port`               | `8080`  | Port to run the HTTP server on.                                                              |
+| `-refresh-interval`   | `5`     | Active background rate (in seconds) to query filetree updates.                               |
+| `-disable-open`       | `false` | Turn off automatic web browser launch on system startup.                                     |
+| `-foreground`         | `false` | Run the web server in the foreground instead of background daemonizing.                      |
+| `-stop`               | `false` | Stop the currently running background instance of the Markdown Browser.                      |
+| `-show-logs`          | `false` | Show logs of the background Markdown Browser instance on the specified port.                 |
+| `-status`             | `false` | Show currently running Markdown Browser instances (including PID, port, and root directory). |
 
 #### Examples:
+
 ```bash
 # Browse home folder documents with an 8-second refresh rate
 md-browser -dir ~/Documents -refresh-interval 8
@@ -138,16 +150,19 @@ md-browser -port 9090 -disable-open
 To let the markdown browser run silently in the background, you can set it up as a standard Systemd user service:
 
 1. **Create the configuration directory** if it doesn't exist:
+
    ```bash
    mkdir -p ~/.config/systemd/user/
    ```
 
 2. **Copy the service file template**:
+
    ```bash
    cp md-browser.service ~/.config/systemd/user/md-browser.service
    ```
 
 3. **Reload the systemd user daemon & start**:
+
    ```bash
    systemctl --user daemon-reload
    systemctl --user enable md-browser.service --now

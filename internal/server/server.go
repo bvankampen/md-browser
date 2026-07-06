@@ -28,6 +28,7 @@ func (s *Server) Start() error {
 	mux.HandleFunc("/api/list", s.handleList)
 	mux.HandleFunc("/api/view", s.handleView)
 	mux.HandleFunc("/api/config", s.handleConfig)
+	mux.HandleFunc("/api/raw", s.handleRaw)
 	mux.HandleFunc("/", s.handleIndex)
 
 	// Bind to localhost port
