@@ -34,6 +34,26 @@ func ParseConfig() (*Config, error) {
 	flag.BoolVar(&cfg.ShowLogs, "show-logs", false, "Show logs of the background Markdown Browser instance")
 	flag.BoolVar(&cfg.Status, "status", false, "Show currently running Markdown Browser instances")
 
+	flag.Usage = func() {
+		fmt.Fprintf(flag.CommandLine.Output(), "Usage of %s:\n", os.Args[0])
+		flag.VisitAll(func(f *flag.Flag) {
+			typeName, usage := flag.UnquoteUsage(f)
+			if typeName == "" {
+				fmt.Fprintf(flag.CommandLine.Output(), "  --%s\n    \t%s", f.Name, usage)
+			} else {
+				fmt.Fprintf(flag.CommandLine.Output(), "  --%s %s\n    \t%s", f.Name, typeName, usage)
+			}
+			if f.DefValue != "" && f.DefValue != "false" && f.DefValue != "0" {
+				if typeName == "string" {
+					fmt.Fprintf(flag.CommandLine.Output(), " (default %q)", f.DefValue)
+				} else {
+					fmt.Fprintf(flag.CommandLine.Output(), " (default %s)", f.DefValue)
+				}
+			}
+			fmt.Fprint(flag.CommandLine.Output(), "\n")
+		})
+	}
+
 	flag.Parse()
 
 	// Track whether the port flag was explicitly passed by the user
