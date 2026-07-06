@@ -73,11 +73,11 @@ md-browser -foreground
 
 ### Stop the Browser
 ```bash
-# Stops the currently running background instance on default port 8080
+# Stops ALL currently running background instances collectively
 md-browser -stop
 
-# Stops the background instance on a custom port
-md-browser -stop -port 8081
+# Stops ONLY the background instance on a custom port (e.g. 8085)
+md-browser -stop -port 8085
 ```
 
 ### Check Running Status
@@ -102,8 +102,10 @@ md-browser -show-logs
 md-browser -show-logs -port 8081
 ```
 
-### Port Conflict Resolution
-If the configured port (default `8080`) is already in use, `md-browser` will automatically detect the conflict, scout for the next free port (e.g. `8081`), notify you on the terminal, and bind to it seamlessly.
+### Port & Directory Conflict Resolution
+
+- **Same-Directory Blocker**: To avoid wasting system resources, `md-browser` automatically detects if there is already a running background instance serving the exact same local folder. If found, the app prints a notification with the active process details and exits immediately, instead of starting a redundant second server.
+- **Port Scouting**: If you start `md-browser` on a different local folder and the configured port (default `8080`) is already in use, `md-browser` will automatically detect the port conflict, scout for the next available free port (e.g. `8081`), notify you on the terminal, and bind to it seamlessly.
 
 ### Command Line Flags
 

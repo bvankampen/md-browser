@@ -17,6 +17,7 @@ type Config struct {
 	Stop            bool
 	ShowLogs        bool
 	Status          bool
+	PortPassed      bool
 }
 
 // ParseConfig parses the command-line flags and returns the validated application configuration.
@@ -29,11 +30,19 @@ func ParseConfig() (*Config, error) {
 	flag.BoolVar(&cfg.DisableOpen, "disable-open", false, "Disable automatically opening the default browser on start")
 	flag.IntVar(&cfg.RefreshInterval, "refresh-interval", 5, "Interval in seconds to check for directory changes")
 	flag.BoolVar(&cfg.Foreground, "foreground", false, "Run the application in the foreground instead of background daemonizing")
-	flag.BoolVar(&cfg.Stop, "stop", false, "Stop the currently running background instance of Markdown Browser")
+	flag.BoolVar(&cfg.Stop, "stop", false, "Stop running background instances of Markdown Browser")
 	flag.BoolVar(&cfg.ShowLogs, "show-logs", false, "Show logs of the background Markdown Browser instance")
 	flag.BoolVar(&cfg.Status, "status", false, "Show currently running Markdown Browser instances")
 
 	flag.Parse()
+
+	// Track whether the port flag was explicitly passed by the user
+	cfg.PortPassed = false
+	flag.Visit(func(f *flag.Flag) {
+		if f.Name == "port" {
+			cfg.PortPassed = true
+		}
+	})
 
 	// If stop, status, or show-logs is requested, bypass directory checks immediately
 	if cfg.Stop || cfg.Status || cfg.ShowLogs {

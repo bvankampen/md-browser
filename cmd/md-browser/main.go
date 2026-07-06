@@ -91,6 +91,63 @@ func main() {
 
 	// Handle Stop command
 	if cfg.Stop {
+		if !cfg.PortPassed {
+			// Stop ALL running instances!
+			home, err := os.UserHomeDir()
+			if err != nil {
+				fmt.Println("Failed to resolve user home directory.")
+				return
+			}
+			logDir := filepath.Join(home, ".local", "md-browser", "log")
+			matches, err := filepath.Glob(filepath.Join(logDir, "md-browser-*.pid"))
+			if err != nil || len(matches) == 0 {
+				fmt.Println("No running Markdown Browser instances found.")
+				return
+			}
+
+			stoppedCount := 0
+			for _, match := range matches {
+				content, err := os.ReadFile(match)
+				if err != nil {
+					continue
+				}
+				lines := strings.Split(string(content), "\n")
+				if len(lines) < 3 {
+					os.Remove(match)
+					continue
+				}
+				pid, err := strconv.Atoi(strings.TrimSpace(lines[0]))
+				if err != nil {
+					os.Remove(match)
+					continue
+				}
+				port, err := strconv.Atoi(strings.TrimSpace(lines[2]))
+				if err != nil {
+					os.Remove(match)
+					continue
+				}
+
+				if isProcessRunning(pid) {
+					if err := stopProcess(pid); err == nil {
+						fmt.Printf("Stopped Markdown Browser running on port %d (PID %d).\n", port, pid)
+						stoppedCount++
+					} else {
+						fmt.Printf("Failed to stop process %d on port %d: %v\n", pid, port, err)
+					}
+				}
+				os.Remove(match)
+				os.Remove(getLogFilePath(port))
+			}
+
+			if stoppedCount == 0 {
+				fmt.Println("No running Markdown Browser instances found (stale files cleaned up).")
+			} else {
+				fmt.Printf("Successfully stopped %d Markdown Browser instances.\n", stoppedCount)
+			}
+			return
+		}
+
+		// Stop ONLY the specified port!
 		pidData, err := os.ReadFile(pidFile)
 		if err != nil {
 			fmt.Printf("Markdown Browser is not running on port %d.\n", cfg.Port)
@@ -128,15 +185,34 @@ func main() {
 		return
 	}
 
-	// Prevent running multiple background processes simultaneously on the SAME port
-	if pidData, err := os.ReadFile(pidFile); err == nil {
-		lines := strings.Split(string(pidData), "\n")
-		if len(lines) > 0 {
-			pidStr := strings.TrimSpace(lines[0])
-			if pid, err := strconv.Atoi(pidStr); err == nil {
-				if pid != os.Getpid() && isProcessRunning(pid) {
-					fmt.Printf("Markdown Browser is already running on port %d (PID: %d).\n", cfg.Port, pid)
-					fmt.Printf("To stop it, run: md-browser -stop -port %d\n", cfg.Port)
+	// Prevent running multiple background processes simultaneously on the SAME directory
+	home, err := os.UserHomeDir()
+	if err == nil {
+		logDir := filepath.Join(home, ".local", "md-browser", "log")
+		matches, _ := filepath.Glob(filepath.Join(logDir, "md-browser-*.pid"))
+		for _, match := range matches {
+			content, err := os.ReadFile(match)
+			if err != nil {
+				continue
+			}
+			lines := strings.Split(string(content), "\n")
+			if len(lines) < 3 {
+				continue
+			}
+			pid, err := strconv.Atoi(strings.TrimSpace(lines[0]))
+			if err != nil {
+				continue
+			}
+			dir := strings.TrimSpace(lines[1])
+			port, err := strconv.Atoi(strings.TrimSpace(lines[2]))
+			if err != nil {
+				continue
+			}
+
+			if pid != os.Getpid() && isProcessRunning(pid) {
+				if filepath.Clean(dir) == filepath.Clean(cfg.RootDir) {
+					fmt.Printf("Markdown Browser is already running for directory %s (PID: %d) on port %d.\n", dir, pid, port)
+					fmt.Printf("To stop it, run: md-browser -stop -port %d\n", port)
 					os.Exit(0)
 				}
 			}
@@ -151,6 +227,21 @@ func main() {
 		cfg.Port = freePort
 		// Re-evaluate the PID file path for the updated port
 		pidFile = getPIDFilePath(cfg.Port)
+	}
+
+	// Prevent running multiple background processes simultaneously on the SAME port
+	if pidData, err := os.ReadFile(pidFile); err == nil {
+		lines := strings.Split(string(pidData), "\n")
+		if len(lines) > 0 {
+			pidStr := strings.TrimSpace(lines[0])
+			if pid, err := strconv.Atoi(pidStr); err == nil {
+				if pid != os.Getpid() && isProcessRunning(pid) {
+					fmt.Printf("Markdown Browser is already running on port %d (PID: %d).\n", cfg.Port, pid)
+					fmt.Printf("To stop it, run: md-browser -stop -port %d\n", cfg.Port)
+					os.Exit(0)
+				}
+			}
+		}
 	}
 
 	// Check if running in Foreground or as a spawned Background child
