@@ -73,8 +73,33 @@ md-browser -foreground
 
 ### Stop the Browser
 ```bash
-# Stops the currently running background instance
+# Stops the currently running background instance on default port 8080
 md-browser -stop
+
+# Stops the background instance on a custom port
+md-browser -stop -port 8081
+```
+
+### Check Running Status
+To check all running instances on your system:
+```bash
+md-browser -status
+```
+Example Output:
+```
+Running md-browser instances:
+  • PID: 683496 | Port: 8080 | Directory: /home/bas/documents
+  • PID: 683512 | Port: 8081 | Directory: /home/bas/projects
+```
+
+### View Server Logs
+To print the startup and runtime output logs for a background instance:
+```bash
+# View logs for default port 8080
+md-browser -show-logs
+
+# View logs for a custom port
+md-browser -show-logs -port 8081
 ```
 
 ### Port Conflict Resolution
@@ -92,6 +117,8 @@ Customize the browser using standard command line options:
 | `-disable-open` | `false` | Turn off automatic web browser launch on system startup. |
 | `-foreground` | `false` | Run the web server in the foreground instead of background daemonizing. |
 | `-stop` | `false` | Stop the currently running background instance of the Markdown Browser. |
+| `-show-logs` | `false` | Show logs of the background Markdown Browser instance on the specified port. |
+| `-status` | `false` | Show currently running Markdown Browser instances (including PID, port, and root directory). |
 
 #### Examples:
 ```bash

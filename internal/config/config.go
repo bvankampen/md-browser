@@ -15,6 +15,8 @@ type Config struct {
 	RefreshInterval int
 	Foreground      bool
 	Stop            bool
+	ShowLogs        bool
+	Status          bool
 }
 
 // ParseConfig parses the command-line flags and returns the validated application configuration.
@@ -28,11 +30,13 @@ func ParseConfig() (*Config, error) {
 	flag.IntVar(&cfg.RefreshInterval, "refresh-interval", 5, "Interval in seconds to check for directory changes")
 	flag.BoolVar(&cfg.Foreground, "foreground", false, "Run the application in the foreground instead of background daemonizing")
 	flag.BoolVar(&cfg.Stop, "stop", false, "Stop the currently running background instance of Markdown Browser")
+	flag.BoolVar(&cfg.ShowLogs, "show-logs", false, "Show logs of the background Markdown Browser instance")
+	flag.BoolVar(&cfg.Status, "status", false, "Show currently running Markdown Browser instances")
 
 	flag.Parse()
 
-	// If stop is requested, bypass directory checks immediately
-	if cfg.Stop {
+	// If stop, status, or show-logs is requested, bypass directory checks immediately
+	if cfg.Stop || cfg.Status || cfg.ShowLogs {
 		return cfg, nil
 	}
 

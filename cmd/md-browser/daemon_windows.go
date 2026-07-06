@@ -3,31 +3,32 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 )
 
 // getPIDFilePath returns the platform-specific PID file path securely isolated under ~/.local/md-browser/log/
-func getPIDFilePath() string {
+func getPIDFilePath(port int) string {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return filepath.Join(os.TempDir(), "md-browser.pid")
+		return filepath.Join(os.TempDir(), fmt.Sprintf("md-browser-%d.pid", port))
 	}
 	dir := filepath.Join(home, ".local", "md-browser", "log")
 	_ = os.MkdirAll(dir, 0755)
-	return filepath.Join(dir, "md-browser.pid")
+	return filepath.Join(dir, fmt.Sprintf("md-browser-%d.pid", port))
 }
 
 // getLogFilePath returns the platform-specific logs file path securely isolated under ~/.local/md-browser/log/
-func getLogFilePath() string {
+func getLogFilePath(port int) string {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return filepath.Join(os.TempDir(), "md-browser.log")
+		return filepath.Join(os.TempDir(), fmt.Sprintf("md-browser-%d.log", port))
 	}
 	dir := filepath.Join(home, ".local", "md-browser", "log")
 	_ = os.MkdirAll(dir, 0755)
-	return filepath.Join(dir, "md-browser.log")
+	return filepath.Join(dir, fmt.Sprintf("md-browser-%d.log", port))
 }
 
 // isProcessRunning checks if the background process with given PID is currently active.
@@ -36,8 +37,7 @@ func isProcessRunning(pid int) bool {
 	if err != nil {
 		return false
 	}
-	// On Windows, finding the process object always succeeds if the PID is valid,
-	// so standard checks or pinging the process is typical.
+	// On Windows, finding the process object always succeeds if the PID is valid.
 	_ = proc
 	return true
 }

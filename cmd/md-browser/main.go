@@ -6,6 +6,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -19,20 +20,94 @@ func main() {
 		log.Fatalf("Configuration error: %v", err)
 	}
 
-	pidFile := getPIDFilePath()
+	pidFile := getPIDFilePath(cfg.Port)
+
+	// Handle Show Logs command
+	if cfg.ShowLogs {
+		logFile := getLogFilePath(cfg.Port)
+		logData, err := os.ReadFile(logFile)
+		if err != nil {
+			fmt.Printf("No logs found for Markdown Browser running on port %d.\n", cfg.Port)
+			return
+		}
+		fmt.Print(string(logData))
+		return
+	}
+
+	// Handle Status command (list all running instances)
+	if cfg.Status {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			fmt.Println("Failed to resolve user home directory.")
+			return
+		}
+		logDir := filepath.Join(home, ".local", "md-browser", "log")
+		matches, err := filepath.Glob(filepath.Join(logDir, "md-browser-*.pid"))
+		if err != nil || len(matches) == 0 {
+			fmt.Println("No active md-browser instances found.")
+			return
+		}
+
+		activeCount := 0
+		for _, match := range matches {
+			content, err := os.ReadFile(match)
+			if err != nil {
+				continue
+			}
+			lines := strings.Split(string(content), "\n")
+			if len(lines) < 3 {
+				os.Remove(match)
+				continue
+			}
+			pid, err := strconv.Atoi(strings.TrimSpace(lines[0]))
+			if err != nil {
+				os.Remove(match)
+				continue
+			}
+			dir := strings.TrimSpace(lines[1])
+			port, err := strconv.Atoi(strings.TrimSpace(lines[2]))
+			if err != nil {
+				os.Remove(match)
+				continue
+			}
+
+			if isProcessRunning(pid) {
+				if activeCount == 0 {
+					fmt.Println("Running md-browser instances:")
+				}
+				fmt.Printf("  • PID: %d | Port: %d | Directory: %s\n", pid, port, dir)
+				activeCount++
+			} else {
+				// Clean up stale file
+				os.Remove(match)
+				os.Remove(getLogFilePath(port))
+			}
+		}
+		if activeCount == 0 {
+			fmt.Println("No active md-browser instances found.")
+		}
+		return
+	}
 
 	// Handle Stop command
 	if cfg.Stop {
 		pidData, err := os.ReadFile(pidFile)
 		if err != nil {
-			fmt.Println("Markdown Browser is not running.")
+			fmt.Printf("Markdown Browser is not running on port %d.\n", cfg.Port)
 			return
 		}
 
-		pidStr := strings.TrimSpace(string(pidData))
+		lines := strings.Split(string(pidData), "\n")
+		if len(lines) == 0 {
+			fmt.Printf("Markdown Browser is not running on port %d (invalid PID file).\n", cfg.Port)
+			os.Remove(pidFile)
+			return
+		}
+
+		pidStr := strings.TrimSpace(lines[0])
 		pid, err := strconv.Atoi(pidStr)
 		if err != nil {
-			fmt.Println("Markdown Browser is not running (invalid PID file). Removing corrupt file.")
+			fmt.Printf("Markdown Browser is not running on port %d (corrupt PID). Cleaning up PID file.\n", cfg.Port)
 			os.Remove(pidFile)
 			return
 		}
@@ -43,22 +118,27 @@ func main() {
 				return
 			}
 			os.Remove(pidFile)
-			fmt.Println("Markdown Browser stopped.")
+			os.Remove(getLogFilePath(cfg.Port))
+			fmt.Printf("Markdown Browser on port %d stopped.\n", cfg.Port)
 		} else {
 			os.Remove(pidFile)
-			fmt.Println("Markdown Browser was not running (stale PID file cleaned up).")
+			os.Remove(getLogFilePath(cfg.Port))
+			fmt.Printf("Markdown Browser on port %d was not running (stale files cleaned up).\n", cfg.Port)
 		}
 		return
 	}
 
-	// Prevent running multiple background processes simultaneously
+	// Prevent running multiple background processes simultaneously on the SAME port
 	if pidData, err := os.ReadFile(pidFile); err == nil {
-		pidStr := strings.TrimSpace(string(pidData))
-		if pid, err := strconv.Atoi(pidStr); err == nil {
-			if pid != os.Getpid() && isProcessRunning(pid) {
-				fmt.Printf("Markdown Browser is already running in background (PID: %d).\n", pid)
-				fmt.Println("To stop it, run: md-browser -stop")
-				os.Exit(0)
+		lines := strings.Split(string(pidData), "\n")
+		if len(lines) > 0 {
+			pidStr := strings.TrimSpace(lines[0])
+			if pid, err := strconv.Atoi(pidStr); err == nil {
+				if pid != os.Getpid() && isProcessRunning(pid) {
+					fmt.Printf("Markdown Browser is already running on port %d (PID: %d).\n", cfg.Port, pid)
+					fmt.Printf("To stop it, run: md-browser -stop -port %d\n", cfg.Port)
+					os.Exit(0)
+				}
 			}
 		}
 	}
@@ -69,12 +149,15 @@ func main() {
 		fmt.Printf("⚠️ Port %d is already in use!\n", cfg.Port)
 		fmt.Printf("💡 Automatically resolving conflict: Starting Markdown Browser on next available port: %d\n\n", freePort)
 		cfg.Port = freePort
+		// Re-evaluate the PID file path for the updated port
+		pidFile = getPIDFilePath(cfg.Port)
 	}
 
 	// Check if running in Foreground or as a spawned Background child
 	if cfg.Foreground || os.Getenv("MD_BROWSER_DAEMON") == "1" {
-		// Save current PID to PID file
-		_ = os.WriteFile(pidFile, []byte(strconv.Itoa(os.Getpid())), 0644)
+		// Save current PID and metadata to PID file
+		data := fmt.Sprintf("%d\n%s\n%d\n", os.Getpid(), cfg.RootDir, cfg.Port)
+		_ = os.WriteFile(pidFile, []byte(data), 0644)
 
 		srv := server.NewServer(cfg)
 		if err := srv.Start(); err != nil {
@@ -104,7 +187,7 @@ func main() {
 	cmd.Env = append(os.Environ(), "MD_BROWSER_DAEMON=1")
 
 	// Redirect daemon outputs to a user-isolated background log file
-	logFile, err := os.OpenFile(getLogFilePath(), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	logFile, err := os.OpenFile(getLogFilePath(cfg.Port), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err == nil {
 		cmd.Stdout = logFile
 		cmd.Stderr = logFile
@@ -118,11 +201,12 @@ func main() {
 		log.Fatalf("Failed to start background daemon: %v", err)
 	}
 
-	// Write daemon process PID to PID file
-	_ = os.WriteFile(pidFile, []byte(strconv.Itoa(cmd.Process.Pid)), 0644)
+	// Write daemon process PID and metadata to PID file
+	data := fmt.Sprintf("%d\n%s\n%d\n", cmd.Process.Pid, cfg.RootDir, cfg.Port)
+	_ = os.WriteFile(pidFile, []byte(data), 0644)
 
-	fmt.Printf("Markdown Browser started in background (PID: %d).\n", cmd.Process.Pid)
-	fmt.Printf("Logs are written to: %s\n", getLogFilePath())
+	fmt.Printf("Markdown Browser started in background (PID: %d) on port %d.\n", cmd.Process.Pid, cfg.Port)
+	fmt.Printf("Logs are written to: %s\n", getLogFilePath(cfg.Port))
 }
 
 // isPortAvailable checks if a local TCP port is open to bind.
