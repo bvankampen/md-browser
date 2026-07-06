@@ -73,11 +73,11 @@ md-browser -foreground
 
 ### Stop the Browser
 ```bash
-# Stops the currently running background instance on default port 8080
+# Stops ALL currently running background instances collectively
 md-browser -stop
 
-# Stops the background instance on a custom port
-md-browser -stop -port 8081
+# Stops ONLY the background instance on a custom port (e.g. 8085)
+md-browser -stop -port 8085
 ```
 
 ### Check Running Status
