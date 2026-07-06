@@ -185,6 +185,40 @@ func main() {
 		return
 	}
 
+	// Prevent running multiple background processes simultaneously on the SAME directory
+	home, err := os.UserHomeDir()
+	if err == nil {
+		logDir := filepath.Join(home, ".local", "md-browser", "log")
+		matches, _ := filepath.Glob(filepath.Join(logDir, "md-browser-*.pid"))
+		for _, match := range matches {
+			content, err := os.ReadFile(match)
+			if err != nil {
+				continue
+			}
+			lines := strings.Split(string(content), "\n")
+			if len(lines) < 3 {
+				continue
+			}
+			pid, err := strconv.Atoi(strings.TrimSpace(lines[0]))
+			if err != nil {
+				continue
+			}
+			dir := strings.TrimSpace(lines[1])
+			port, err := strconv.Atoi(strings.TrimSpace(lines[2]))
+			if err != nil {
+				continue
+			}
+
+			if pid != os.Getpid() && isProcessRunning(pid) {
+				if filepath.Clean(dir) == filepath.Clean(cfg.RootDir) {
+					fmt.Printf("Markdown Browser is already running for directory %s (PID: %d) on port %d.\n", dir, pid, port)
+					fmt.Printf("To stop it, run: md-browser -stop -port %d\n", port)
+					os.Exit(0)
+				}
+			}
+		}
+	}
+
 	// Verify port availability and auto-resolve conflicts
 	if !isPortAvailable(cfg.Port) {
 		freePort := findNextFreePort(cfg.Port + 1)
