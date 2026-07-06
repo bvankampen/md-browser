@@ -212,7 +212,7 @@ func main() {
 			if pid != os.Getpid() && isProcessRunning(pid) {
 				if filepath.Clean(dir) == filepath.Clean(cfg.RootDir) {
 					fmt.Printf("Markdown Browser is already running for directory %s (PID: %d) on port %d.\n", dir, pid, port)
-					fmt.Printf("To stop it, run: md-browser -stop -port %d\n", port)
+					fmt.Printf("To stop it, run: md-browser --stop --port %d\n", port)
 					os.Exit(0)
 				}
 			}
@@ -237,7 +237,7 @@ func main() {
 			if pid, err := strconv.Atoi(pidStr); err == nil {
 				if pid != os.Getpid() && isProcessRunning(pid) {
 					fmt.Printf("Markdown Browser is already running on port %d (PID: %d).\n", cfg.Port, pid)
-					fmt.Printf("To stop it, run: md-browser -stop -port %d\n", cfg.Port)
+					fmt.Printf("To stop it, run: md-browser --stop --port %d\n", cfg.Port)
 					os.Exit(0)
 				}
 			}
@@ -265,13 +265,13 @@ func main() {
 
 	// Build the exact CLI arguments to preserve state (forcing foreground inside the spawned copy)
 	args := []string{
-		"-dir", cfg.RootDir,
-		"-port", strconv.Itoa(cfg.Port),
-		"-refresh-interval", strconv.Itoa(cfg.RefreshInterval),
-		"-foreground",
+		"--dir", cfg.RootDir,
+		"--port", strconv.Itoa(cfg.Port),
+		"--refresh-interval", strconv.Itoa(cfg.RefreshInterval),
+		"--foreground",
 	}
 	if cfg.DisableOpen {
-		args = append(args, "-disable-open")
+		args = append(args, "--disable-open")
 	}
 
 	cmd := exec.Command(execPath, args...)

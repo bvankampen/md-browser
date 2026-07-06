@@ -72,17 +72,17 @@ By default, executing `md-browser` launches the application as a **daemon runnin
 md-browser
 
 # Run in the foreground instead of daemonizing
-md-browser -foreground
+md-browser --foreground
 ```
 
 ### Stop the Browser
 
 ```bash
 # Stops ALL currently running background instances collectively
-md-browser -stop
+md-browser --stop
 
 # Stops ONLY the background instance on a custom port (e.g. 8085)
-md-browser -stop -port 8085
+md-browser --stop --port 8085
 ```
 
 ### Check Running Status
@@ -90,7 +90,7 @@ md-browser -stop -port 8085
 To check all running instances on your system:
 
 ```bash
-md-browser -status
+md-browser --status
 ```
 
 Example Output:
@@ -107,10 +107,10 @@ To print the startup and runtime output logs for a background instance:
 
 ```bash
 # View logs for default port 8080
-md-browser -show-logs
+md-browser --show-logs
 
 # View logs for a custom port
-md-browser -show-logs -port 8081
+md-browser --show-logs --port 8081
 ```
 
 ### Port & Directory Conflict Resolution
@@ -122,25 +122,25 @@ md-browser -show-logs -port 8081
 
 Customize the browser using standard command line options:
 
-| Flag                  | Default | Description                                                                                  |
-| --------------------- | ------- | -------------------------------------------------------------------------------------------- |
-| `-dir` / `-directory` | `.`     | Root directory path on disk to browse and serve.                                             |
-| `-port`               | `8080`  | Port to run the HTTP server on.                                                              |
-| `-refresh-interval`   | `5`     | Active background rate (in seconds) to query filetree updates.                               |
-| `-disable-open`       | `false` | Turn off automatic web browser launch on system startup.                                     |
-| `-foreground`         | `false` | Run the web server in the foreground instead of background daemonizing.                      |
-| `-stop`               | `false` | Stop the currently running background instance of the Markdown Browser.                      |
-| `-show-logs`          | `false` | Show logs of the background Markdown Browser instance on the specified port.                 |
-| `-status`             | `false` | Show currently running Markdown Browser instances (including PID, port, and root directory). |
+| Flag                    | Default | Description                                                                                  |
+| ----------------------- | ------- | -------------------------------------------------------------------------------------------- |
+| `--dir` / `--directory` | `.`     | Root directory path on disk to browse and serve.                                             |
+| `--port`               | `8080`  | Port to run the HTTP server on.                                                              |
+| `--refresh-interval`   | `5`     | Active background rate (in seconds) to query filetree updates.                               |
+| `--disable-open`       | `false` | Turn off automatic web browser launch on system startup.                                     |
+| `--foreground`         | `false` | Run the web server in the foreground instead of background daemonizing.                      |
+| `--stop`               | `false` | Stop the currently running background instance of the Markdown Browser.                      |
+| `--show-logs`          | `false` | Show logs of the background Markdown Browser instance on the specified port.                 |
+| `--status`             | `false` | Show currently running Markdown Browser instances (including PID, port, and root directory). |
 
 #### Examples:
 
 ```bash
 # Browse home folder documents with an 8-second refresh rate
-md-browser -dir ~/Documents -refresh-interval 8
+md-browser --dir ~/Documents --refresh-interval 8
 
 # Host on port 9090 and disable auto-browser startup
-md-browser -port 9090 -disable-open
+md-browser --port 9090 --disable-open
 ```
 
 ---
