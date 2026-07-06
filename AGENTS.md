@@ -20,8 +20,8 @@ This is a golang application which starts up a webserver on localhost. This webs
 - **Backend**: Go standard library (`net/http`, `html/template`, `embed`). Keep it clean and simple.
 - **Frontend**: Responsive split-pane layout using standard CSS Grid/Flexbox and vanilla JavaScript. Avoid complex client-side bundlers.
 - **Navigation**: Dynamically traverse and display the folder structure on the left pane and display the selected rendered markdown on the right pane.
-- **Directory Configuration**: Default to the current working directory as the root, but support setting a different directory path via a CLI flag (e.g., `-dir` or `--directory`).
-- **Browser Autostart**: Automatically open the default web browser on launch to the server URL. Provide a CLI flag (`-disable-open` with default `false`) to turn this off if requested.
+- **Directory Configuration**: Default to the current working directory as the root, but support setting a different directory path via a CLI flag (e.g., `--dir` or `--directory`).
+- **Browser Autostart**: Automatically open the default web browser on launch to the server URL. Provide a CLI flag (`--disable-open` with default `false`) to turn this off if requested.
 - **File Filtering**: Only show folders and markdown files (`.md`, `.markdown`) by default. Provide a configuration/toggle option to show all files.
 
 # Developer Commands
