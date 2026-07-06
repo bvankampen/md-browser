@@ -60,11 +60,25 @@ chmod +x install.sh
 
 ## Usage
 
-Start the browser simply by executing:
+By default, executing `md-browser` launches the application as a **daemon running in the background**, so your terminal is immediately freed.
 
+### Start the Browser
 ```bash
+# Starts the browser in the background (default)
 md-browser
+
+# Run in the foreground instead of daemonizing
+md-browser -foreground
 ```
+
+### Stop the Browser
+```bash
+# Stops the currently running background instance
+md-browser -stop
+```
+
+### Port Conflict Resolution
+If the configured port (default `8080`) is already in use, `md-browser` will automatically detect the conflict, scout for the next free port (e.g. `8081`), notify you on the terminal, and bind to it seamlessly.
 
 ### Command Line Flags
 
@@ -76,6 +90,8 @@ Customize the browser using standard command line options:
 | `-port` | `8080` | Port to run the HTTP server on. |
 | `-refresh-interval` | `5` | Active background rate (in seconds) to query filetree updates. |
 | `-disable-open` | `false` | Turn off automatic web browser launch on system startup. |
+| `-foreground` | `false` | Run the web server in the foreground instead of background daemonizing. |
+| `-stop` | `false` | Stop the currently running background instance of the Markdown Browser. |
 
 #### Examples:
 ```bash

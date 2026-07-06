@@ -13,6 +13,8 @@ type Config struct {
 	Port            int
 	DisableOpen     bool
 	RefreshInterval int
+	Foreground      bool
+	Stop            bool
 }
 
 // ParseConfig parses the command-line flags and returns the validated application configuration.
@@ -24,8 +26,15 @@ func ParseConfig() (*Config, error) {
 	flag.IntVar(&cfg.Port, "port", 8080, "Port to run the web server on")
 	flag.BoolVar(&cfg.DisableOpen, "disable-open", false, "Disable automatically opening the default browser on start")
 	flag.IntVar(&cfg.RefreshInterval, "refresh-interval", 5, "Interval in seconds to check for directory changes")
+	flag.BoolVar(&cfg.Foreground, "foreground", false, "Run the application in the foreground instead of background daemonizing")
+	flag.BoolVar(&cfg.Stop, "stop", false, "Stop the currently running background instance of Markdown Browser")
 
 	flag.Parse()
+
+	// If stop is requested, bypass directory checks immediately
+	if cfg.Stop {
+		return cfg, nil
+	}
 
 	// Resolve absolute path of RootDir
 	absRoot, err := filepath.Abs(cfg.RootDir)
