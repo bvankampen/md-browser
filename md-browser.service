@@ -1,0 +1,14 @@
+[Unit]
+Description=Web-based local Markdown and source code browser
+After=network.target
+
+[Service]
+Type=simple
+# %h expands to the user's home directory (e.g., /home/bas)
+ExecStart=%h/go/bin/md-browser -dir . -port 8080 -refresh-interval 5
+WorkingDirectory=%h
+Restart=on-failure
+
+[Install]
+# For user services, WantedBy is default.target (instead of multi-user.target)
+WantedBy=default.target

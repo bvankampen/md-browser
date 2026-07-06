@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Markdown Browser</title>
+    <!-- GitHub Markdown Light CSS for accurate light-themed document rendering -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.8.1/github-markdown-light.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <!-- Highlight.js CSS with GitHub Light style for code syntax highlighting -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <style>
+        :root {
+            --sidebar-width: 320px;
+            --bg-color: #0d1117;
+            --sidebar-bg: #161b22;
+            --border-color: #30363d;
+            --text-color: #c9d1d9;
+            --text-muted: #8b949e;
+            --active-bg: #21262d;
+            --hover-bg: #30363d;
+            --primary-color: #58a6ff;
+            --font-stack: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: var(--font-stack);
+            color: var(--text-color);
+            background-color: var(--bg-color);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+        }
+
+        /* Sidebar styling */
+        aside {
+            width: var(--sidebar-width);
+            min-width: 250px;
+            max-width: 500px;
+            background-color: var(--sidebar-bg);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            user-select: none;
+        }
+
+        .sidebar-header {
+            padding: 16px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+
+        .brand svg {
+            fill: var(--primary-color);
+            flex-shrink: 0;
+        }
+
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .controls input[type="checkbox"] {
+            cursor: pointer;
+            width: 14px;
+            height: 14px;
+            accent-color: var(--primary-color);
+        }
+
+        .controls label {
+            cursor: pointer;
+        }
+
+        .tree-actions {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        .action-link {
+            background: none;
+            border: none;
+            color: var(--primary-color);
+            cursor: pointer;
+            padding: 0;
+            font-size: 0.8rem;
+            font-family: inherit;
+            text-decoration: none;
+        }
+
+        .action-link:hover {
+            text-decoration: underline;
+        }
+
+        .divider {
+            color: var(--border-color);
+        }
+
+        .tree-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px 8px;
+        }
+
+        /* File Tree styling */
+        .tree-node {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .tree-row {
+            display: flex;
+            align-items: center;
+            padding: 6px 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            gap: 6px;
+            color: var(--text-color);
+            text-decoration: none;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .tree-row:hover {
+            background-color: var(--hover-bg);
+        }
+
+        .tree-row.active {
+            background-color: var(--active-bg);
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+
+        .tree-children {
+            margin-left: 16px;
+            border-left: 1px solid var(--border-color);
+            padding-left: 4px;
+            display: none;
+        }
+
+        .tree-children.expanded {
+            display: block;
+        }
+
+        .icon {
+            width: 16px;
+            height: 16px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted);
+            flex-shrink: 0;
+        }
+
+        .icon-arrow {
+            transition: transform 0.15s ease;
+        }
+
+        .expanded > .tree-row > .icon-arrow {
+            transform: rotate(90s); /* handled by inline rotate or class */
+        }
+
+        .icon-arrow.open {
+            transform: rotate(90deg);
+        }
+
+        /* Main view styling */
+        main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            overflow: hidden;
+            background-color: var(--bg-color);
+        }
+
+        .view-header {
+            padding: 12px 24px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            min-height: 56px;
+            background-color: var(--bg-color);
+        }
+
+        .file-path {
+            font-family: monospace;
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            word-break: break-all;
+            padding-right: 16px;
+        }
+
+        .btn {
+            background-color: var(--sidebar-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 5px 12px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            color: var(--text-color);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            user-select: none;
+            transition: background-color 0.1s;
+        }
+
+        .btn:hover {
+            background-color: var(--hover-bg);
+        }
+
+        .btn:active {
+            background-color: var(--active-bg);
+        }
+
+        .content-scroller {
+            flex: 1;
+            overflow-y: auto;
+            padding: 32px;
+            background-color: #090d13; /* Elegant dark backdrop */
+        }
+
+        /* Beautiful github markdown wrapper with custom max-width */
+        .markdown-container {
+            max-width: 1500px;
+            width: 100%;
+            margin: 0 auto;
+        }
+
+        .markdown-body {
+            padding: 45px;
+            background-color: #ffffff !important; /* Force white background for light theme */
+            color: #1f2328 !important; /* Force dark text color */
+            border-radius: 8px;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.45);
+            border: 1px solid #21262d;
+        }
+
+        /* Empty state placeholder styling */
+        .placeholder-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            text-align: center;
+            padding: 40px;
+            color: var(--text-muted);
+            gap: 16px;
+        }
+
+        .placeholder-state svg {
+            color: var(--border-color);
+        }
+
+        .placeholder-state h2 {
+            font-weight: 400;
+            color: var(--text-color);
+        }
+
+        .placeholder-state p {
+            max-width: 400px;
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+
+        /* Hidden utility class */
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Sidebar pane -->
+    <aside>
+        <div class="sidebar-header">
+            <div class="brand">
+                <!-- Book/Markdown SVG Icon -->
+                <svg viewBox="0 0 16 16" width="20" height="20" aria-hidden="true">
+                    <path d="M0 1.75A.75.75 0 0 1 .75 1h4.25c.974 0 1.91.444 2.525 1.203C8.139 1.444 9.076 1 10.05 1h4.25a.75.75 0 0 1 .75.75v11.5a.75.75 0 0 1-.75.75h-3.905a21.012 21.012 0 0 0-2.391-.122 20.932 20.932 0 0 0-2.391.122H.75a.75.75 0 0 1-.75-.75V1.75zM5.75 12H1.5V2.5h4.25a3.25 3.25 0 0 1 3 2.192 3.75 3.75 0 0 0-1.5-.192H5.75V12zM10 4.5a3.25 3.25 0 0 1 3-2.192h4.25V12h-4.25a3.75 3.75 0 0 0-1.5.192V4.5z"></path>
+                </svg>
+                <span>MD Browser</span>
+            </div>
+            <div class="controls">
+                <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <input type="checkbox" id="toggle-all" />
+                        <label for="toggle-all">Show all files</label>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <input type="checkbox" id="toggle-autofresh" />
+                        <label for="toggle-autofresh">Auto-refresh</label>
+                    </div>
+                </div>
+                <div class="tree-actions">
+                    <button class="action-link" id="btn-expand-all">Expand all</button>
+                    <span class="divider">|</span>
+                    <button class="action-link" id="btn-collapse-all">Collapse all</button>
+                    <span class="divider">|</span>
+                    <button class="action-link" id="btn-refresh">Refresh</button>
+                </div>
+            </div>
+        </div>
+        <div class="tree-container" id="tree-container">
+            <!-- File Tree will be dynamically loaded here -->
+        </div>
+    </aside>
+
+    <!-- Main Content Pane -->
+    <main>
+        <!-- Empty placeholder view -->
+        <div class="placeholder-state" id="placeholder-view">
+            <svg viewBox="0 0 24 24" width="80" height="80" fill="currentColor">
+                <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
+            </svg>
+            <h2>No Markdown File Selected</h2>
+            <p>Select a markdown file from the left navigation tree to view its beautifully parsed content in real-time.</p>
+        </div>
+
+        <!-- Rendered Markdown view -->
+        <div class="hidden" id="markdown-view" style="display: flex; flex-direction: column; height: 100%; overflow: hidden;">
+            <div class="view-header">
+                <div class="file-path" id="file-path-display">/readme.md</div>
+                <button class="btn" id="btn-copy">
+                    <!-- Copy SVG Icon -->
+                    <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor">
+                        <path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25v-7.5z"></path>
+                        <path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25v-7.5zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25h-7.5z"></path>
+                    </svg>
+                    <span>Copy Path</span>
+                </button>
+            </div>
+            <div class="content-scroller">
+                <div class="markdown-container" id="markdown-content">
+                    <!-- Rendered HTML content goes here -->
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Highlight.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+    <script>
+        const treeContainer = document.getElementById('tree-container');
+        const toggleAllCheckbox = document.getElementById('toggle-all');
+        const toggleAutofreshCheckbox = document.getElementById('toggle-autofresh');
+        const placeholderView = document.getElementById('placeholder-view');
+        const markdownView = document.getElementById('markdown-view');
+        const filePathDisplay = document.getElementById('file-path-display');
+        const markdownContent = document.getElementById('markdown-content');
+        const btnCopy = document.getElementById('btn-copy');
+        const btnExpandAll = document.getElementById('btn-expand-all');
+        const btnCollapseAll = document.getElementById('btn-collapse-all');
+        const btnRefresh = document.getElementById('btn-refresh');
+
+        let currentActivePath = '';
+        const expandedPaths = new Set();
+        let autofreshIntervalId = null;
+        let refreshIntervalSec = 5;
+
+        // Save show all state in localStorage
+        const storedShowAll = localStorage.getItem('md-browser-show-all');
+        if (storedShowAll !== null) {
+            toggleAllCheckbox.checked = storedShowAll === 'true';
+        }
+
+        // Save auto-refresh state in localStorage (defaults to true for great UX!)
+        const storedAutofresh = localStorage.getItem('md-browser-auto-refresh');
+        if (storedAutofresh !== null) {
+            toggleAutofreshCheckbox.checked = storedAutofresh === 'true';
+        } else {
+            toggleAutofreshCheckbox.checked = true; // Enabled by default!
+        }
+
+        toggleAllCheckbox.addEventListener('change', () => {
+            localStorage.setItem('md-browser-show-all', toggleAllCheckbox.checked);
+            refreshTree();
+        });
+
+        toggleAutofreshCheckbox.addEventListener('change', () => {
+            localStorage.setItem('md-browser-auto-refresh', toggleAutofreshCheckbox.checked);
+            setupAutofresh();
+        });
+
+        btnCopy.addEventListener('click', () => {
+            if (currentActivePath) {
+                navigator.clipboard.writeText(currentActivePath).then(() => {
+                    const btnText = btnCopy.querySelector('span');
+                    const origText = btnText.innerText;
+                    btnText.innerText = 'Copied!';
+                    setTimeout(() => {
+                        btnText.innerText = origText;
+                    }, 1500);
+                });
+            }
+        });
+
+        btnExpandAll.addEventListener('click', (e) => {
+            e.preventDefault();
+            expandAllNode(treeContainer);
+        });
+
+        btnCollapseAll.addEventListener('click', (e) => {
+            e.preventDefault();
+            collapseAll();
+        });
+
+        btnRefresh.addEventListener('click', (e) => {
+            e.preventDefault();
+            refreshTree();
+        });
+
+        // Set up the auto-refresh interval based on the checkbox state
+        function setupAutofresh() {
+            if (autofreshIntervalId) {
+                clearInterval(autofreshIntervalId);
+                autofreshIntervalId = null;
+            }
+
+            if (toggleAutofreshCheckbox.checked) {
+                autofreshIntervalId = setInterval(() => {
+                    // Only refresh if the browser tab is currently active to save server resource
+                    if (!document.hidden) {
+                        refreshTreeSilent();
+                    }
+                }, refreshIntervalSec * 1000);
+            }
+        }
+
+        // SVG Icons helper
+        const folderIconSvg = `
+            <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor">
+                <path d="M1.75 1A1.75 1.75 0 0 0 0 2.75v10.5C0 14.216.784 15 1.75 15h12.5A1.75 1.75 0 0 0 16 13.25v-8.5A1.75 1.75 0 0 0 14.25 3H7.5a.25.25 0 0 1-.2-.1l-.9-1.2C6.07 1.28 5.55 1 5 1H1.75z"></path>
+            </svg>
+        `;
+
+        const fileIconSvg = `
+            <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor">
+                <path d="M2 1.75C2 .784 2.784 0 3.75 0h6.586c.464 0 .909.184 1.237.513l3.25 3.25c.329.329.513.773.513 1.237v9.25A1.75 1.75 0 0 1 13.5 16h-9.75A1.75 1.75 0 0 1 2 14.25V1.75zM3.75 1.5a.25.25 0 0 0-.25.25v12.5c0 .138.112.25.25.25h9.75a.25.25 0 0 0 .25-.25V6h-3.25A1.75 1.75 0 0 1 9 4.25V1.5H3.75zM10.5 1.811V4.25c0 .138.112.25.25.25h2.439L10.5 1.811z"></path>
+            </svg>
+        `;
+
+        const mdIconSvg = `
+            <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor">
+                <path d="M14.854 4.854a.5.5 0 0 0 0-.708l-4-4a.5.5 0 0 0-.708 0L6.293 4H1.5A1.5 1.5 0 0 0 0 5.5v9A1.5 1.5 0 0 0 1.5 16h13a1.5 1.5 0 0 0 1.5-1.5V5a.5.5 0 0 0-.146-.346zM10.5 1.707L13.793 5H10.5V1.707zM1.5 5h8v1a.5.5 0 0 0 .5.5h3.5v8a.5.5 0 0 1-.5.5h-11a.5.5 0 0 1-.5-.5v-9A.5.5 0 0 1 1.5 5zm2.5 3h1v4h-1V8zm2.5 0H8v1.5l1-1.5h1.5L9 9.5 10.5 12H9l-1-1.5V12H6.5V8z"/>
+            </svg>
+        `;
+
+        const arrowIconSvg = `
+            <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor" class="icon-arrow">
+                <path d="M6.22 3.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L9.94 8 6.22 4.28a.75.75 0 0 1 0-1.06z"></path>
+            </svg>
+        `;
+
+        // Initialize and load the root tree
+        async function init() {
+            try {
+                const res = await fetch('/api/config');
+                if (res.ok) {
+                    const config = await res.json();
+                    if (config.refresh_interval) {
+                        refreshIntervalSec = config.refresh_interval;
+                    }
+                }
+            } catch (e) {
+                console.error("Failed to load config:", e);
+            }
+            await loadDirectory('', treeContainer, true);
+            setupAutofresh();
+        }
+
+        async function refreshTree() {
+            treeContainer.innerHTML = '';
+            await loadDirectory('', treeContainer, true);
+        }
+
+        // butter-smooth, completely flicker-free silent reload of directory tree structure
+        async function refreshTreeSilent() {
+            await reconcileDirectory('', treeContainer);
+        }
+
+        // Factory function to create a new folder or file tree node
+        function createTreeNode(item) {
+            const node = document.createElement('div');
+            node.className = 'tree-node';
+
+            const row = document.createElement('a');
+            row.className = 'tree-row';
+            row.href = '#';
+            row.setAttribute('data-path', item.path);
+            row.setAttribute('data-isdir', item.is_dir);
+
+            // Render Arrow Icon if directory
+            const arrowSpan = document.createElement('span');
+            arrowSpan.className = 'icon';
+            if (item.is_dir) {
+                arrowSpan.innerHTML = arrowIconSvg;
+            }
+            row.appendChild(arrowSpan);
+
+            // Render Type Icon (Folder, MD File, or normal File)
+            const typeSpan = document.createElement('span');
+            typeSpan.className = 'icon';
+            if (item.is_dir) {
+                typeSpan.innerHTML = folderIconSvg;
+            } else if (item.name.toLowerCase().endsWith('.md') || item.name.toLowerCase().endsWith('.markdown')) {
+                typeSpan.innerHTML = mdIconSvg;
+                typeSpan.style.color = 'var(--primary-color)';
+            } else {
+                typeSpan.innerHTML = fileIconSvg;
+            }
+            row.appendChild(typeSpan);
+
+            // Name label
+            const nameLabel = document.createElement('span');
+            nameLabel.innerText = item.name;
+            row.appendChild(nameLabel);
+
+            node.appendChild(row);
+
+            // If folder, add children container
+            if (item.is_dir) {
+                const childrenContainer = document.createElement('div');
+                childrenContainer.className = 'tree-children';
+                node.appendChild(childrenContainer);
+
+                row.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const arrowSvg = arrowSpan.querySelector('.icon-arrow');
+                    
+                    if (childrenContainer.classList.contains('expanded')) {
+                        childrenContainer.classList.remove('expanded');
+                        if (arrowSvg) arrowSvg.classList.remove('open');
+                        expandedPaths.delete(item.path);
+                    } else {
+                        childrenContainer.classList.add('expanded');
+                        if (arrowSvg) arrowSvg.classList.add('open');
+                        expandedPaths.add(item.path);
+                        
+                        // Lazy load contents if not already loaded
+                        if (childrenContainer.children.length === 0) {
+                            loadDirectory(item.path, childrenContainer);
+                        }
+                    }
+                });
+            } else {
+                // File click handler
+                row.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    
+                    // Highlight clicked row
+                    document.querySelectorAll('.tree-row').forEach(r => r.classList.remove('active'));
+                    row.classList.add('active');
+
+                    viewFile(item.path);
+                });
+            }
+
+            return node;
+        }
+
+        // In-place DOM reconciliation (DOM patching) of the directory elements to eliminate flickering
+        async function reconcileDirectory(path, container) {
+            try {
+                const showAll = toggleAllCheckbox.checked;
+                const response = await fetch(`/api/list?path=${encodeURIComponent(path)}&all=${showAll}`);
+                if (!response.ok) {
+                    throw new Error(await response.text());
+                }
+                const newItems = await response.json();
+
+                // Sort items: directories first, then alphabetically
+                newItems.sort((a, b) => {
+                    if (a.is_dir !== b.is_dir) {
+                        return a.is_dir ? -1 : 1;
+                    }
+                    return a.name.localeCompare(b.name);
+                });
+
+                // Get existing DOM nodes inside this container
+                const existingNodes = Array.from(container.children).filter(el => el.classList.contains('tree-node'));
+                const existingNodesMap = new Map();
+                existingNodes.forEach(node => {
+                    const row = node.querySelector('.tree-row');
+                    if (row) {
+                        const itemPath = row.getAttribute('data-path');
+                        existingNodesMap.set(itemPath, node);
+                    }
+                });
+
+                // Clear any (empty) or (error) helper divs in the container
+                Array.from(container.children).forEach(el => {
+                    if (!el.classList.contains('tree-node')) {
+                        container.removeChild(el);
+                    }
+                });
+
+                // If no new items, display (empty) and remove all existing nodes
+                if (newItems.length === 0) {
+                    container.innerHTML = '';
+                    const emptyDiv = document.createElement('div');
+                    emptyDiv.style.padding = '6px 12px';
+                    emptyDiv.style.fontSize = '0.85rem';
+                    emptyDiv.style.color = 'var(--text-muted)';
+                    emptyDiv.style.fontStyle = 'italic';
+                    emptyDiv.innerText = '(empty)';
+                    container.appendChild(emptyDiv);
+                    return;
+                }
+
+                const activeRow = treeContainer.querySelector('.tree-row.active');
+                const activePath = activeRow ? activeRow.getAttribute('data-path') : '';
+
+                newItems.forEach((item, index) => {
+                    let node = existingNodesMap.get(item.path);
+
+                    if (node) {
+                        // Node already exists! Keep it and remove from map so we know it's still alive
+                        existingNodesMap.delete(item.path);
+
+                        // If highlighted, restore highlight
+                        if (activePath && item.path === activePath) {
+                            const row = node.querySelector('.tree-row');
+                            if (row) row.classList.add('active');
+                        }
+
+                        // If it's a directory and it is expanded, recursively reconcile its children
+                        if (item.is_dir && expandedPaths.has(item.path)) {
+                            const childrenContainer = node.querySelector('.tree-children');
+                            if (childrenContainer) {
+                                reconcileDirectory(item.path, childrenContainer);
+                            }
+                        }
+                    } else {
+                        // Node does not exist! Create a new tree node
+                        node = createTreeNode(item);
+                    }
+
+                    // Insert or re-order node in container at index position
+                    const currentChildAtIndex = container.children[index];
+                    if (currentChildAtIndex !== node) {
+                        container.insertBefore(node, currentChildAtIndex || null);
+                    }
+                });
+
+                // Any nodes left in existingNodesMap are stale (deleted on disk) - remove them!
+                existingNodesMap.forEach(node => {
+                    container.removeChild(node);
+                });
+
+                // If container became empty, add (empty) label
+                if (container.children.length === 0) {
+                    const emptyDiv = document.createElement('div');
+                    emptyDiv.style.padding = '6px 12px';
+                    emptyDiv.style.fontSize = '0.85rem';
+                    emptyDiv.style.color = 'var(--text-muted)';
+                    emptyDiv.style.fontStyle = 'italic';
+                    emptyDiv.innerText = '(empty)';
+                    container.appendChild(emptyDiv);
+                }
+            } catch (err) {
+                console.error('Error reconciling directory:', err);
+            }
+        }
+
+        // Load a directory path from the server and append list items to container
+        async function loadDirectory(path, container, autoExpand = false) {
+            try {
+                const showAll = toggleAllCheckbox.checked;
+                const response = await fetch(`/api/list?path=${encodeURIComponent(path)}&all=${showAll}`);
+                if (!response.ok) {
+                    throw new Error(await response.text());
+                }
+                const items = await response.json();
+                
+                // Sort items: directories first, then alphabetically
+                items.sort((a, b) => {
+                    if (a.is_dir !== b.is_dir) {
+                        return a.is_dir ? -1 : 1;
+                    }
+                    return a.name.localeCompare(b.name);
+                });
+
+                if (items.length === 0) {
+                    const emptyDiv = document.createElement('div');
+                    emptyDiv.style.padding = '6px 12px';
+                    emptyDiv.style.fontSize = '0.85rem';
+                    emptyDiv.style.color = 'var(--text-muted)';
+                    emptyDiv.style.fontStyle = 'italic';
+                    emptyDiv.innerText = '(empty)';
+                    container.appendChild(emptyDiv);
+                    return;
+                }
+
+                const foldersToExpand = [];
+
+                items.forEach(item => {
+                    const node = createTreeNode(item);
+                    container.appendChild(node);
+
+                    if (item.is_dir) {
+                        const childrenContainer = node.querySelector('.tree-children');
+                        const arrowSpan = node.querySelector('.icon'); // first icon is arrow span
+
+                        // Restore previous expanded state during refresh
+                        if (expandedPaths.has(item.path)) {
+                            childrenContainer.classList.add('expanded');
+                            const arrowSvg = arrowSpan.querySelector('.icon-arrow');
+                            if (arrowSvg) arrowSvg.classList.add('open');
+                            loadDirectory(item.path, childrenContainer);
+                        } else if (autoExpand) {
+                            foldersToExpand.push({ childrenContainer, arrowSpan, path: item.path });
+                        }
+                    }
+                });
+
+                // Auto-expand if requested and fits the screen
+                if (autoExpand && foldersToExpand.length > 0) {
+                    for (const folder of foldersToExpand) {
+                        // Check if current elements already cause scrolling or exceed threshold
+                        const doesFit = treeContainer.scrollHeight <= treeContainer.clientHeight;
+                        const visibleRows = treeContainer.querySelectorAll('.tree-row').length;
+
+                        if (doesFit && visibleRows < 40) {
+                            folder.childrenContainer.classList.add('expanded');
+                            const arrowSvg = folder.arrowSpan.querySelector('.icon-arrow');
+                            if (arrowSvg) arrowSvg.classList.add('open');
+                            expandedPaths.add(folder.path); // Track in expandedPaths
+                            
+                            await loadDirectory(folder.path, folder.childrenContainer, true);
+                        } else {
+                            break;
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error('Error loading directory:', err);
+                const errDiv = document.createElement('div');
+                errDiv.style.padding = '6px 12px';
+                errDiv.style.fontSize = '0.85rem';
+                errDiv.style.color = '#cf222e'; // error color
+                errDiv.innerText = `Error: ${err.message}`;
+                container.appendChild(errDiv);
+            }
+        }
+
+        async function expandAllNode(container) {
+            const rows = container.querySelectorAll('.tree-row[data-isdir="true"]');
+            for (const row of rows) {
+                const childrenContainer = row.nextElementSibling;
+                const arrowSpan = row.querySelector('.icon');
+                const arrowSvg = arrowSpan ? arrowSpan.querySelector('.icon-arrow') : null;
+                if (childrenContainer && !childrenContainer.classList.contains('expanded')) {
+                    childrenContainer.classList.add('expanded');
+                    if (arrowSvg) arrowSvg.classList.add('open');
+                    
+                    if (childrenContainer.children.length === 0) {
+                        const path = row.getAttribute('data-path');
+                        await loadDirectory(path, childrenContainer);
+                    }
+                    // Recursively expand newly loaded children
+                    await expandAllNode(childrenContainer);
+                }
+            }
+        }
+
+        // Helper to format file sizes
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // Helper to escape HTML to prevent XSS
+        function escapeHtml(str) {
+            return str
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function collapseAll() {
+            const children = treeContainer.querySelectorAll('.tree-children.expanded');
+            children.forEach(el => {
+                el.classList.remove('expanded');
+            });
+            const arrows = treeContainer.querySelectorAll('.icon-arrow.open');
+            arrows.forEach(el => {
+                el.classList.remove('open');
+            });
+        }
+
+        // View rendering for files (text/markdown or binary files)
+        async function viewFile(path) {
+            try {
+                const response = await fetch(`/api/view?path=${encodeURIComponent(path)}`);
+                if (!response.ok) {
+                    throw new Error(await response.text());
+                }
+                const data = await response.json();
+
+                currentActivePath = data.path;
+                filePathDisplay.innerText = data.path;
+
+                if (data.is_binary) {
+                    // Display details of the binary file without parsing it
+                    markdownContent.innerHTML = `
+                        <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 48px 24px; text-align: center;">
+                            <svg viewBox="0 0 24 24" width="72" height="72" style="color: #afb8c1; margin-bottom: 20px;" fill="currentColor">
+                                <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-1 16H6c-.55 0-1-.45-1-1V6c0-.55.45-1 1-1h12c.55 0 1 .45 1 1v12c0 .55-.45 1-1 1zm-4-4h-4v-2h4v2zm2-4H8V9h8v2z"/>
+                            </svg>
+                            <h3 style="margin-bottom: 8px; font-weight: 600; color: #24292f; font-size: 1.4rem;">${escapeHtml(data.title)}</h3>
+                            <p style="font-size: 0.95rem; margin-bottom: 24px; color: #57606a;">Size: ${formatBytes(data.size)}</p>
+                            <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+                                <span style="font-size: 0.85rem; padding: 6px 16px; background-color: #f6f8fa; border: 1px solid #d0d7de; border-radius: 20px; color: #24292f; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Binary File</span>
+                                <p style="font-size: 0.85rem; color: #57606a; max-width: 320px; margin-top: 12px; line-height: 1.4;">This file contains binary content and cannot be viewed as a parsed document.</p>
+                            </div>
+                        </div>
+                    `;
+                } else if (data.is_markdown) {
+                    markdownContent.innerHTML = `<div class="markdown-body">${data.html}</div>`;
+
+                    // Run syntax highlighting on code blocks inside markdown
+                    if (window.hljs) {
+                        document.querySelectorAll('#markdown-content .markdown-body pre code').forEach((el) => {
+                            hljs.highlightElement(el);
+                        });
+                    }
+                } else {
+                    // For raw source code files, generate line numbers and render
+                    const lines = data.content.split(/\r?\n/);
+                    // Ensure we render at least 1 line
+                    const lineCount = Math.max(lines.length, 1);
+                    let gutterHtml = '';
+                    for (let i = 1; i <= lineCount; i++) {
+                        gutterHtml += `<div style="height: 20px; line-height: 20px;">${i}</div>`;
+                    }
+
+                    markdownContent.innerHTML = `
+                        <div style="display: flex; background: #ffffff; border-radius: 8px; border: 1px solid #d0d7de; font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, Liberation Mono, monospace; font-size: 13px; overflow: hidden; box-shadow: 0 4px 24px rgba(0, 0, 0, 0.45);">
+                            <div class="line-gutter" style="padding: 16px 12px; text-align: right; color: #57606a; background-color: #f6f8fa; border-right: 1px solid #d0d7de; user-select: none; min-width: 48px; flex-shrink: 0; font-size: 13px; font-family: inherit;">
+                                ${gutterHtml}
+                            </div>
+                            <pre style="margin: 0; padding: 16px; overflow-x: auto; flex: 1; background-color: #ffffff; color: #1f2328; font-family: inherit;"><code class="language-${data.ext}" style="background-color: #ffffff; color: #1f2328; padding: 0; display: block; white-space: pre; line-height: 20px; font-family: inherit; font-size: 13px;">${escapeHtml(data.content)}</code></pre>
+                        </div>
+                    `;
+
+                    // Run syntax highlighting on the new block
+                    if (window.hljs) {
+                        const el = markdownContent.querySelector('pre code');
+                        if (el) hljs.highlightElement(el);
+                    }
+                }
+
+                // Toggle visibility
+                placeholderView.classList.add('hidden');
+                markdownView.classList.remove('hidden');
+
+                // Scroll view-header back to top
+                document.querySelector('.content-scroller').scrollTop = 0;
+            } catch (err) {
+                alert(`Failed to load file: ${err.message}`);
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>
