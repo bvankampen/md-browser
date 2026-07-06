@@ -1,0 +1,6 @@
+# Binaries
+/md-browser
+md-browser.exe
+
+# Testing
+*.test
