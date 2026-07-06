@@ -3,29 +3,31 @@
 package main
 
 import (
-	"fmt"
 	"os"
 	"os/exec"
-	"os/user"
 	"path/filepath"
 )
 
-// getPIDFilePath returns the platform-specific PID file path securely isolated per local OS user.
+// getPIDFilePath returns the platform-specific PID file path securely isolated under ~/.local/md-browser/log/
 func getPIDFilePath() string {
-	username := "default"
-	if u, err := user.Current(); err == nil {
-		username = u.Username
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return filepath.Join(os.TempDir(), "md-browser.pid")
 	}
-	return filepath.Join(os.TempDir(), fmt.Sprintf("md-browser-%s.pid", username))
+	dir := filepath.Join(home, ".local", "md-browser", "log")
+	_ = os.MkdirAll(dir, 0755)
+	return filepath.Join(dir, "md-browser.pid")
 }
 
-// getLogFilePath returns the platform-specific logs file path.
+// getLogFilePath returns the platform-specific logs file path securely isolated under ~/.local/md-browser/log/
 func getLogFilePath() string {
-	username := "default"
-	if u, err := user.Current(); err == nil {
-		username = u.Username
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return filepath.Join(os.TempDir(), "md-browser.log")
 	}
-	return filepath.Join(os.TempDir(), fmt.Sprintf("md-browser-%s.log", username))
+	dir := filepath.Join(home, ".local", "md-browser", "log")
+	_ = os.MkdirAll(dir, 0755)
+	return filepath.Join(dir, "md-browser.log")
 }
 
 // isProcessRunning checks if the background process with given PID is currently active.
@@ -34,11 +36,8 @@ func isProcessRunning(pid int) bool {
 	if err != nil {
 		return false
 	}
-	// On Windows, finding the process object and sending a signal isn't standard,
-	// but a simpler check or trying to find it using Tasklist is standard.
-	// Since os.FindProcess always succeeds on Windows if PID fits, we can try to
-	// check if the process exists or is active by testing standard behaviors.
-	// We can use a simple ping or check that doesn't block.
+	// On Windows, finding the process object always succeeds if the PID is valid,
+	// so standard checks or pinging the process is typical.
 	_ = proc
 	return true
 }
