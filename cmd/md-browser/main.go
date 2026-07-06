@@ -185,6 +185,16 @@ func main() {
 		return
 	}
 
+	// Verify port availability and auto-resolve conflicts
+	if !isPortAvailable(cfg.Port) {
+		freePort := findNextFreePort(cfg.Port + 1)
+		fmt.Printf("⚠️ Port %d is already in use!\n", cfg.Port)
+		fmt.Printf("💡 Automatically resolving conflict: Starting Markdown Browser on next available port: %d\n\n", freePort)
+		cfg.Port = freePort
+		// Re-evaluate the PID file path for the updated port
+		pidFile = getPIDFilePath(cfg.Port)
+	}
+
 	// Prevent running multiple background processes simultaneously on the SAME port
 	if pidData, err := os.ReadFile(pidFile); err == nil {
 		lines := strings.Split(string(pidData), "\n")
@@ -198,16 +208,6 @@ func main() {
 				}
 			}
 		}
-	}
-
-	// Verify port availability and auto-resolve conflicts
-	if !isPortAvailable(cfg.Port) {
-		freePort := findNextFreePort(cfg.Port + 1)
-		fmt.Printf("⚠️ Port %d is already in use!\n", cfg.Port)
-		fmt.Printf("💡 Automatically resolving conflict: Starting Markdown Browser on next available port: %d\n\n", freePort)
-		cfg.Port = freePort
-		// Re-evaluate the PID file path for the updated port
-		pidFile = getPIDFilePath(cfg.Port)
 	}
 
 	// Check if running in Foreground or as a spawned Background child
