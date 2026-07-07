@@ -349,14 +349,14 @@
         <div class="hidden" id="markdown-view" style="display: flex; flex-direction: column; height: 100%; overflow: hidden;">
             <div class="view-header">
                 <div class="file-path" id="file-path-display">/readme.md</div>
-                <button class="btn" id="btn-copy">
-                    <!-- Copy SVG Icon -->
-                    <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor">
-                        <path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25v-7.5z"></path>
-                        <path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25v-7.5zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25h-7.5z"></path>
-                    </svg>
-                    <span>Copy Path</span>
-                </button>
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn hidden" id="btn-toggle-source">
+                        <span>View Source</span>
+                    </button>
+                    <button class="btn" id="btn-copy">
+                        <span>Copy Path</span>
+                    </button>
+                </div>
             </div>
             <div class="content-scroller">
                 <div class="markdown-container" id="markdown-content">
@@ -381,8 +381,11 @@
         const btnExpandAll = document.getElementById('btn-expand-all');
         const btnCollapseAll = document.getElementById('btn-collapse-all');
         const btnRefresh = document.getElementById('btn-refresh');
+        const btnToggleSource = document.getElementById('btn-toggle-source');
 
         let currentActivePath = '';
+        let currentFileData = null;
+        let showingSource = false;
         const expandedPaths = new Set();
         let autofreshIntervalId = null;
         let refreshIntervalSec = 5;
@@ -438,6 +441,26 @@
             e.preventDefault();
             refreshTree();
         });
+
+        btnToggleSource.addEventListener('click', () => {
+            if (!currentFileData || !currentFileData.is_markdown) return;
+            showingSource = !showingSource;
+            updateMarkdownDisplay();
+        });
+
+        function updateMarkdownDisplay() {
+            if (!currentFileData) return;
+
+            const btnText = btnToggleSource.querySelector('span');
+
+            if (showingSource) {
+                renderSourceCode(currentFileData.content, currentFileData.ext);
+                btnText.innerText = 'View Rendered';
+            } else {
+                renderParsedMarkdown(currentFileData.html, currentFileData.path);
+                btnText.innerText = 'View Source';
+            }
+        }
 
         // Set up the auto-refresh interval based on the checkbox state
         function setupAutofresh() {
@@ -901,6 +924,52 @@
             });
         }
 
+        function renderParsedMarkdown(html, path) {
+            markdownContent.innerHTML = `<div class="markdown-body">${html}</div>`;
+
+            // Process images inside markdown to serve local assets securely
+            const docDir = getParentDir(path);
+            markdownContent.querySelectorAll('.markdown-body img').forEach((img) => {
+                const src = img.getAttribute('src');
+                if (src && !isExternalUrl(src)) {
+                    const resolved = resolveRelativePath(docDir, src);
+                    img.src = `/api/raw?path=${encodeURIComponent(resolved)}`;
+                }
+            });
+
+            // Run syntax highlighting on code blocks inside markdown
+            if (window.hljs) {
+                document.querySelectorAll('#markdown-content .markdown-body pre code').forEach((el) => {
+                    hljs.highlightElement(el);
+                });
+            }
+        }
+
+        function renderSourceCode(content, ext) {
+            const lines = content.split(/\r?\n/);
+            // Ensure we render at least 1 line
+            const lineCount = Math.max(lines.length, 1);
+            let gutterHtml = '';
+            for (let i = 1; i <= lineCount; i++) {
+                gutterHtml += `<div style="height: 20px; line-height: 20px;">${i}</div>`;
+            }
+
+            markdownContent.innerHTML = `
+                <div style="display: flex; background: #ffffff; border-radius: 8px; border: 1px solid #d0d7de; font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, Liberation Mono, monospace; font-size: 13px; overflow: hidden; box-shadow: 0 4px 24px rgba(0, 0, 0, 0.45);">
+                    <div class="line-gutter" style="padding: 16px 12px; text-align: right; color: #57606a; background-color: #f6f8fa; border-right: 1px solid #d0d7de; user-select: none; min-width: 48px; flex-shrink: 0; font-size: 13px; font-family: inherit;">
+                        ${gutterHtml}
+                    </div>
+                    <pre style="margin: 0; padding: 16px; overflow-x: auto; flex: 1; background-color: #ffffff; color: #1f2328; font-family: inherit;"><code class="language-${ext}" style="background-color: #ffffff; color: #1f2328; padding: 0; display: block; white-space: pre; line-height: 20px; font-family: inherit; font-size: 13px;">${escapeHtml(content)}</code></pre>
+                </div>
+            `;
+
+            // Run syntax highlighting on the new block
+            if (window.hljs) {
+                const el = markdownContent.querySelector('pre code');
+                if (el) hljs.highlightElement(el);
+            }
+        }
+
         // View rendering for files (text/markdown or binary files)
         async function viewFile(path) {
             try {
@@ -911,9 +980,12 @@
                 const data = await response.json();
 
                 currentActivePath = data.path;
+                currentFileData = data;
+                showingSource = false; // Always default to rendered view when opening a new file
                 filePathDisplay.innerText = data.path;
 
                 if (data.is_binary) {
+                    btnToggleSource.classList.add('hidden');
                     // Display details of the binary file without parsing it
                     markdownContent.innerHTML = `
                         <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 48px 24px; text-align: center;">
@@ -929,48 +1001,11 @@
                         </div>
                     `;
                 } else if (data.is_markdown) {
-                    markdownContent.innerHTML = `<div class="markdown-body">${data.html}</div>`;
-
-                    // Process images inside markdown to serve local assets securely
-                    const docDir = getParentDir(data.path);
-                    markdownContent.querySelectorAll('.markdown-body img').forEach((img) => {
-                        const src = img.getAttribute('src');
-                        if (src && !isExternalUrl(src)) {
-                            const resolved = resolveRelativePath(docDir, src);
-                            img.src = `/api/raw?path=${encodeURIComponent(resolved)}`;
-                        }
-                    });
-
-                    // Run syntax highlighting on code blocks inside markdown
-                    if (window.hljs) {
-                        document.querySelectorAll('#markdown-content .markdown-body pre code').forEach((el) => {
-                            hljs.highlightElement(el);
-                        });
-                    }
+                    btnToggleSource.classList.remove('hidden');
+                    updateMarkdownDisplay();
                 } else {
-                    // For raw source code files, generate line numbers and render
-                    const lines = data.content.split(/\r?\n/);
-                    // Ensure we render at least 1 line
-                    const lineCount = Math.max(lines.length, 1);
-                    let gutterHtml = '';
-                    for (let i = 1; i <= lineCount; i++) {
-                        gutterHtml += `<div style="height: 20px; line-height: 20px;">${i}</div>`;
-                    }
-
-                    markdownContent.innerHTML = `
-                        <div style="display: flex; background: #ffffff; border-radius: 8px; border: 1px solid #d0d7de; font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, Liberation Mono, monospace; font-size: 13px; overflow: hidden; box-shadow: 0 4px 24px rgba(0, 0, 0, 0.45);">
-                            <div class="line-gutter" style="padding: 16px 12px; text-align: right; color: #57606a; background-color: #f6f8fa; border-right: 1px solid #d0d7de; user-select: none; min-width: 48px; flex-shrink: 0; font-size: 13px; font-family: inherit;">
-                                ${gutterHtml}
-                            </div>
-                            <pre style="margin: 0; padding: 16px; overflow-x: auto; flex: 1; background-color: #ffffff; color: #1f2328; font-family: inherit;"><code class="language-${data.ext}" style="background-color: #ffffff; color: #1f2328; padding: 0; display: block; white-space: pre; line-height: 20px; font-family: inherit; font-size: 13px;">${escapeHtml(data.content)}</code></pre>
-                        </div>
-                    `;
-
-                    // Run syntax highlighting on the new block
-                    if (window.hljs) {
-                        const el = markdownContent.querySelector('pre code');
-                        if (el) hljs.highlightElement(el);
-                    }
+                    btnToggleSource.classList.add('hidden');
+                    renderSourceCode(data.content, data.ext);
                 }
 
                 // Toggle visibility

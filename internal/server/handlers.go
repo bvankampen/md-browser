@@ -211,6 +211,8 @@ func (s *Server) handleView(w http.ResponseWriter, r *http.Request) {
 			"is_binary":   false,
 			"is_markdown": true,
 			"html":        string(htmlData),
+			"content":     string(content),
+			"ext":         strings.TrimPrefix(ext, "."),
 		}
 		json.NewEncoder(w).Encode(response)
 		return
