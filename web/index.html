@@ -309,6 +309,15 @@
                 </svg>
                 <span>MD Browser</span>
             </div>
+            <div class="search-box-container" style="position: relative; width: 100%;">
+                <input type="text" id="search-input" placeholder="Search Markdown files..." style="width: 100%; padding: 6px 32px 6px 10px; border-radius: 6px; border: 1px solid var(--border-color); background-color: var(--bg-color); color: var(--text-color); font-size: 0.85rem; outline: none; font-family: inherit;" />
+                <button id="btn-search-clear" class="hidden" style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 0; display: inline-flex; align-items: center; justify-content: center;">
+                    <!-- Simple Clear X Icon -->
+                    <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor">
+                        <path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.75.75 0 1 1 1.06 1.06L9.06 8l3.22 3.22a.75.75 0 1 1-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 1 1-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06z"/>
+                    </svg>
+                </button>
+            </div>
             <div class="controls">
                 <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
                     <div style="display: flex; align-items: center; gap: 6px;">
@@ -331,6 +340,9 @@
         </div>
         <div class="tree-container" id="tree-container">
             <!-- File Tree will be dynamically loaded here -->
+        </div>
+        <div class="tree-container hidden" id="search-results-container">
+            <!-- Search Results will be dynamically loaded here -->
         </div>
     </aside>
 
@@ -382,6 +394,9 @@
         const btnCollapseAll = document.getElementById('btn-collapse-all');
         const btnRefresh = document.getElementById('btn-refresh');
         const btnToggleSource = document.getElementById('btn-toggle-source');
+        const searchInput = document.getElementById('search-input');
+        const btnSearchClear = document.getElementById('btn-search-clear');
+        const searchResultsContainer = document.getElementById('search-results-container');
 
         let currentActivePath = '';
         let currentFileData = null;
@@ -448,6 +463,186 @@
             updateMarkdownDisplay();
         });
 
+        let searchTimeoutId = null;
+        searchInput.addEventListener('input', () => {
+            if (searchTimeoutId) {
+                clearTimeout(searchTimeoutId);
+            }
+
+            const query = searchInput.value.trim();
+            if (query === '') {
+                btnSearchClear.classList.add('hidden');
+                searchResultsContainer.classList.add('hidden');
+                treeContainer.classList.remove('hidden');
+                return;
+            }
+
+            btnSearchClear.classList.remove('hidden');
+            searchTimeoutId = setTimeout(() => {
+                performSearch(query);
+            }, 300);
+        });
+
+        btnSearchClear.addEventListener('click', () => {
+            searchInput.value = '';
+            btnSearchClear.classList.add('hidden');
+            searchResultsContainer.classList.add('hidden');
+            treeContainer.classList.remove('hidden');
+            searchInput.focus();
+        });
+
+        async function performSearch(query) {
+            try {
+                const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
+                if (!response.ok) {
+                    throw new Error(await response.text());
+                }
+                const results = await response.json();
+
+                renderSearchResults(results, query);
+            } catch (err) {
+                console.error('Search failed:', err);
+                searchResultsContainer.innerHTML = `
+                    <div style="padding: 6px 12px; font-size: 0.85rem; color: #cf222e; font-style: italic;">
+                        Search error: ${escapeHtml(err.message)}
+                    </div>
+                `;
+                searchResultsContainer.classList.remove('hidden');
+                treeContainer.classList.add('hidden');
+            }
+        }
+
+        function renderSearchResults(results, query) {
+            searchResultsContainer.innerHTML = '';
+            searchResultsContainer.classList.remove('hidden');
+            treeContainer.classList.add('hidden');
+
+            if (results.length === 0) {
+                const noResultsDiv = document.createElement('div');
+                noResultsDiv.style.padding = '12px';
+                noResultsDiv.style.fontSize = '0.85rem';
+                noResultsDiv.style.color = 'var(--text-muted)';
+                noResultsDiv.style.fontStyle = 'italic';
+                noResultsDiv.innerText = 'No matching markdown files found.';
+                searchResultsContainer.appendChild(noResultsDiv);
+                return;
+            }
+
+            results.forEach(item => {
+                const node = document.createElement('div');
+                node.className = 'tree-node';
+                node.style.marginBottom = '12px';
+
+                const row = document.createElement('a');
+                row.className = 'tree-row';
+                row.href = '#';
+                row.setAttribute('data-path', item.path);
+
+                // MD File icon
+                const iconSpan = document.createElement('span');
+                iconSpan.className = 'icon';
+                iconSpan.innerHTML = mdIconSvg;
+                iconSpan.style.color = 'var(--primary-color)';
+                row.appendChild(iconSpan);
+
+                // File name & relative path
+                const textContainer = document.createElement('div');
+                textContainer.style.display = 'flex';
+                textContainer.style.flexDirection = 'column';
+                textContainer.style.overflow = 'hidden';
+
+                const nameLabel = document.createElement('span');
+                nameLabel.style.fontWeight = '600';
+                nameLabel.innerText = item.name;
+                textContainer.appendChild(nameLabel);
+
+                const pathLabel = document.createElement('span');
+                pathLabel.style.fontSize = '0.75rem';
+                pathLabel.style.color = 'var(--text-muted)';
+                pathLabel.style.textOverflow = 'ellipsis';
+                pathLabel.style.whiteSpace = 'nowrap';
+                pathLabel.style.overflow = 'hidden';
+                pathLabel.innerText = item.path;
+                textContainer.appendChild(pathLabel);
+
+                row.appendChild(textContainer);
+                node.appendChild(row);
+
+                // Render Snippets
+                if (item.snippets && item.snippets.length > 0) {
+                    const snippetsContainer = document.createElement('div');
+                    snippetsContainer.style.marginLeft = '22px';
+                    snippetsContainer.style.marginTop = '4px';
+                    snippetsContainer.style.borderLeft = '1px solid var(--border-color)';
+                    snippetsContainer.style.paddingLeft = '8px';
+                    snippetsContainer.style.display = 'flex';
+                    snippetsContainer.style.flexDirection = 'column';
+                    snippetsContainer.style.gap = '4px';
+
+                    item.snippets.forEach((snippet, snippetIdx) => {
+                        const snippetDiv = document.createElement('div');
+                        snippetDiv.className = 'search-snippet-row';
+                        snippetDiv.style.fontSize = '0.75rem';
+                        snippetDiv.style.color = 'var(--text-muted)';
+                        snippetDiv.style.fontFamily = 'monospace';
+                        snippetDiv.style.whiteSpace = 'nowrap';
+                        snippetDiv.style.overflow = 'hidden';
+                        snippetDiv.style.textOverflow = 'ellipsis';
+                        snippetDiv.style.cursor = 'pointer';
+                        snippetDiv.style.padding = '2px 4px';
+                        snippetDiv.style.borderRadius = '4px';
+                        snippetDiv.style.transition = 'background-color 0.1s';
+
+                        // Hover effect
+                        snippetDiv.addEventListener('mouseenter', () => {
+                            snippetDiv.style.backgroundColor = 'var(--hover-bg)';
+                            snippetDiv.style.color = 'var(--text-color)';
+                        });
+                        snippetDiv.addEventListener('mouseleave', () => {
+                            snippetDiv.style.backgroundColor = 'transparent';
+                            snippetDiv.style.color = 'var(--text-muted)';
+                        });
+
+                        // Case-insensitive highlighted text
+                        const escapedSnippet = escapeHtml(snippet.text);
+                        const escapedQuery = escapeHtml(query);
+                        const regex = new RegExp(`(${escapedQuery.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')})`, 'gi');
+                        const highlighted = escapedSnippet.replace(regex, '<mark style="background-color: #f8e3a1; color: #111; border-radius: 2px; padding: 0 2px;">$1</mark>');
+
+                        snippetDiv.innerHTML = `<span style="color: var(--primary-color); margin-right: 6px; font-weight: 600;">${snippet.line}:</span>${highlighted}`;
+
+                        // Clicking a specific snippet opens the file and scrolls to that snippet's match index!
+                        snippetDiv.addEventListener('click', (e) => {
+                            e.preventDefault();
+                            e.stopPropagation(); // prevent triggering parent row click
+
+                            // Highlight the corresponding file row
+                            document.querySelectorAll('.tree-row').forEach(r => r.classList.remove('active'));
+                            row.classList.add('active');
+
+                            viewFile(item.path, query, snippetIdx);
+                        });
+
+                        snippetsContainer.appendChild(snippetDiv);
+                    });
+
+                    node.appendChild(snippetsContainer);
+                }
+
+                // File click handler
+                row.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    // Highlight selected row in both trees
+                    document.querySelectorAll('.tree-row').forEach(r => r.classList.remove('active'));
+                    row.classList.add('active');
+
+                    viewFile(item.path, query);
+                });
+
+                searchResultsContainer.appendChild(node);
+            });
+        }
+
         function updateMarkdownDisplay() {
             if (!currentFileData) return;
 
@@ -459,6 +654,12 @@
             } else {
                 renderParsedMarkdown(currentFileData.html, currentFileData.path);
                 btnText.innerText = 'View Source';
+            }
+
+            // Keep matches highlighted when toggling modes
+            const query = searchInput.value.trim();
+            if (query !== '' && !searchResultsContainer.classList.contains('hidden')) {
+                highlightAndScrollToQuery(query);
             }
         }
 
@@ -673,7 +874,7 @@
                     return;
                 }
 
-                const activeRow = treeContainer.querySelector('.tree-row.active');
+                const activeRow = document.querySelector('.tree-row.active');
                 const activePath = activeRow ? activeRow.getAttribute('data-path') : '';
 
                 newItems.forEach((item, index) => {
@@ -913,6 +1114,78 @@
             return /^(https?:|data:|mailto:|tel:)/i.test(url);
         }
 
+        function highlightAndScrollToQuery(query, matchIndex = 0) {
+            if (!query) return;
+            const queryLower = query.toLowerCase();
+
+            // Clean up any stale highlights from previously viewed files
+            removeHighlights(markdownContent);
+
+            const walker = document.createTreeWalker(
+                markdownContent,
+                NodeFilter.SHOW_TEXT,
+                null,
+                false
+            );
+
+            const nodesToReplace = [];
+            let currentNode = walker.nextNode();
+            while (currentNode) {
+                const parent = currentNode.parentNode;
+                const parentTag = parent.tagName.toUpperCase();
+                if (parentTag !== 'SCRIPT' && parentTag !== 'STYLE') {
+                    const text = currentNode.nodeValue;
+                    if (text.toLowerCase().includes(queryLower)) {
+                        nodesToReplace.push(currentNode);
+                    }
+                }
+                currentNode = walker.nextNode();
+            }
+
+            nodesToReplace.forEach(node => {
+                const parent = node.parentNode;
+                const text = node.nodeValue;
+                const regex = new RegExp(`(${query.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')})`, 'gi');
+                const parts = text.split(regex);
+
+                const fragment = document.createDocumentFragment();
+                parts.forEach(part => {
+                    if (part.toLowerCase() === queryLower) {
+                        const mark = document.createElement('mark');
+                        mark.className = 'search-highlight';
+                        mark.style.backgroundColor = '#f8e3a1';
+                        mark.style.color = '#111';
+                        mark.style.borderRadius = '2px';
+                        mark.style.padding = '0 2px';
+                        mark.innerText = part;
+                        fragment.appendChild(mark);
+                    } else {
+                        fragment.appendChild(document.createTextNode(part));
+                    }
+                });
+
+                parent.replaceChild(fragment, node);
+            });
+
+            // Smoothly scroll and center the specified match index in the viewport
+            const allMarks = markdownContent.querySelectorAll('mark.search-highlight');
+            const targetMark = allMarks[matchIndex] || allMarks[0];
+            if (targetMark) {
+                setTimeout(() => {
+                    targetMark.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }, 100);
+            }
+        }
+
+        function removeHighlights(container) {
+            const marks = container.querySelectorAll('mark.search-highlight');
+            marks.forEach(mark => {
+                const parent = mark.parentNode;
+                parent.replaceChild(document.createTextNode(mark.innerText), mark);
+                parent.normalize(); // Cleanly merges adjacent text nodes
+            });
+        }
+
         function collapseAll() {
             const children = treeContainer.querySelectorAll('.tree-children.expanded');
             children.forEach(el => {
@@ -971,7 +1244,7 @@
         }
 
         // View rendering for files (text/markdown or binary files)
-        async function viewFile(path) {
+        async function viewFile(path, searchQuery = '', matchIndex = 0) {
             try {
                 const response = await fetch(`/api/view?path=${encodeURIComponent(path)}`);
                 if (!response.ok) {
@@ -1003,17 +1276,25 @@
                 } else if (data.is_markdown) {
                     btnToggleSource.classList.remove('hidden');
                     updateMarkdownDisplay();
+                    if (searchQuery) {
+                        highlightAndScrollToQuery(searchQuery, matchIndex);
+                    }
                 } else {
                     btnToggleSource.classList.add('hidden');
                     renderSourceCode(data.content, data.ext);
+                    if (searchQuery) {
+                        highlightAndScrollToQuery(searchQuery, matchIndex);
+                    }
                 }
 
                 // Toggle visibility
                 placeholderView.classList.add('hidden');
                 markdownView.classList.remove('hidden');
 
-                // Scroll view-header back to top
-                document.querySelector('.content-scroller').scrollTop = 0;
+                // Scroll view-header back to top only if not focusing on a query match
+                if (!searchQuery) {
+                    document.querySelector('.content-scroller').scrollTop = 0;
+                }
             } catch (err) {
                 alert(`Failed to load file: ${err.message}`);
             }

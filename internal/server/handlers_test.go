@@ -211,3 +211,85 @@ func TestHasMDFiles(t *testing.T) {
 		})
 	}
 }
+
+func TestHandleSearch(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	absRoot, err := filepath.Abs(tmpDir)
+	if err != nil {
+		t.Fatalf("Failed to get absolute path: %v", err)
+	}
+
+	// Create some mock files
+	_ = os.WriteFile(filepath.Join(absRoot, "file1.md"), []byte("This is a special test line.\nAnother line here."), 0644)
+	_ = os.WriteFile(filepath.Join(absRoot, "file2.markdown"), []byte("No match here.\nActually, SPECIAL match here."), 0644)
+	_ = os.WriteFile(filepath.Join(absRoot, "file3.txt"), []byte("This has a special line but it is not markdown."), 0644)
+
+	cfg := &config.Config{
+		RootDir: absRoot,
+	}
+	s := NewServer(cfg)
+
+	tests := []struct {
+		name           string
+		query          string
+		wantStatusCode int
+		wantInBody     []string
+		dontWantInBody []string
+	}{
+		{
+			name:           "Valid search with matches",
+			query:          "special",
+			wantStatusCode: http.StatusOK,
+			wantInBody:     []string{"file1.md", "file2.markdown", "special test line", "SPECIAL match"},
+			dontWantInBody: []string{"file3.txt"},
+		},
+		{
+			name:           "Case insensitive match",
+			query:          "SpEcIaL",
+			wantStatusCode: http.StatusOK,
+			wantInBody:     []string{"file1.md", "file2.markdown", "special test line", "SPECIAL match"},
+			dontWantInBody: []string{"file3.txt"},
+		},
+		{
+			name:           "Empty query search",
+			query:          "",
+			wantStatusCode: http.StatusOK,
+			wantInBody:     []string{"[]"},
+			dontWantInBody: []string{"file1.md", "special"},
+		},
+		{
+			name:           "No matching search",
+			query:          "nonexistentkeyword",
+			wantStatusCode: http.StatusOK,
+			wantInBody:     []string{"[]"},
+			dontWantInBody: []string{"file1.md"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest("GET", "/api/search?q="+tt.query, nil)
+			w := httptest.NewRecorder()
+
+			s.handleSearch(w, req)
+
+			resp := w.Result()
+			if resp.StatusCode != tt.wantStatusCode {
+				t.Errorf("handleSearch() status = %d, want %d", resp.StatusCode, tt.wantStatusCode)
+			}
+
+			body := w.Body.String()
+			for _, searchStr := range tt.wantInBody {
+				if !strings.Contains(body, searchStr) {
+					t.Errorf("handleSearch() body = %q; expected to contain %q", body, searchStr)
+				}
+			}
+			for _, dontSearchStr := range tt.dontWantInBody {
+				if strings.Contains(body, dontSearchStr) {
+					t.Errorf("handleSearch() body = %q; expected NOT to contain %q", body, dontSearchStr)
+				}
+			}
+		})
+	}
+}

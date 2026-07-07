@@ -302,3 +302,112 @@ func (s *Server) handleRaw(w http.ResponseWriter, r *http.Request) {
 
 	http.ServeFile(w, r, targetFile)
 }
+
+// SearchSnippet represents a single matching snippet with its line number.
+type SearchSnippet struct {
+	Line int    `json:"line"`
+	Text string `json:"text"`
+}
+
+// SearchResult represents a single file containing search matches.
+type SearchResult struct {
+	Path     string          `json:"path"`
+	Name     string          `json:"name"`
+	Snippets []SearchSnippet `json:"snippets"`
+}
+
+// handleSearch performs a recursive, case-insensitive substring search across all Markdown files.
+func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	query := strings.TrimSpace(r.URL.Query().Get("q"))
+	if query == "" {
+		json.NewEncoder(w).Encode([]SearchResult{})
+		return
+	}
+
+	queryLower := strings.ToLower(query)
+	results := []SearchResult{}
+
+	err := filepath.WalkDir(s.config.RootDir, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return nil // skip problematic paths
+		}
+
+		name := d.Name()
+		// Skip hidden files/directories and .git
+		if strings.HasPrefix(name, ".") {
+			if d.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		if d.IsDir() {
+			return nil
+		}
+
+		// Only search markdown files
+		ext := strings.ToLower(filepath.Ext(name))
+		if ext != ".md" && ext != ".markdown" {
+			return nil
+		}
+
+		// Read and search file content
+		content, err := os.ReadFile(path)
+		if err != nil {
+			return nil // skip unreadable files
+		}
+
+		// Quick case-insensitive check first
+		contentStr := string(content)
+		contentLower := strings.ToLower(contentStr)
+		if !strings.Contains(contentLower, queryLower) {
+			return nil
+		}
+
+		// Find matching snippets (lines containing the query)
+		lines := strings.Split(contentStr, "\n")
+		snippets := []SearchSnippet{}
+		for i, line := range lines {
+			lineLower := strings.ToLower(line)
+			if strings.Contains(lineLower, queryLower) {
+				trimmed := strings.TrimSpace(line)
+				if trimmed != "" {
+					snippets = append(snippets, SearchSnippet{
+						Line: i + 1, // 1-indexed line number
+						Text: trimmed,
+					})
+					// Cap the number of snippets per file to 5
+					if len(snippets) >= 5 {
+						break
+					}
+				}
+			}
+		}
+
+		// Resolve relative path to RootDir
+		relPath, err := filepath.Rel(s.config.RootDir, path)
+		if err != nil {
+			return nil
+		}
+
+		// Ensure uniform relative path format across operating systems
+		relPath = filepath.ToSlash(relPath)
+
+		results = append(results, SearchResult{
+			Path:     relPath,
+			Name:     name,
+			Snippets: snippets,
+		})
+
+		return nil
+	})
+
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Search failed: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	json.NewEncoder(w).Encode(results)
+}
