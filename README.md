@@ -13,6 +13,7 @@ A high-performance, responsive, and beautiful local Markdown and source code bro
 - **Standalone Source Code & Syntax Highlighting**: Seamlessly views standard source and configuration files (e.g., `.go`, `.json`, `.yaml`, `.mod`, `.sum`) with syntax highlighting powered by `Highlight.js` alongside standard line-number gutters.
 - **Null-Byte Binary Sniffing**: Safely detects and identifies binary files (using null-byte inspection and mimetype sniffing) to show a beautiful file detail card instead of corrupting the layout with unreadable binary text.
 - **Flicker-Free DOM Reconciliation**: Updates the directory filetree in real-time using an intelligent DOM patching algorithm. Files and folders are loaded dynamically, preserving active selections and fold states without flashing or scrolling resets.
+- **Case-Insensitive Substring Search & Jumping**: Run recursive, case-insensitive searches over Markdown documents instantly. Displays matched files and clickable line snippets with inline line-numbers, automatically highlighting matching text nodes and smooth-scrolling the viewport directly to the clicked match occurrence in the document.
 - **Security-First Path Traversal Protection**: Employs robust verification checks on all path parameters using Go's absolute path resolution to block directory-traversal exploits.
 - **Platform-Agnostic Autostart**: Automatically triggers the default browser to launch the client on start (fully configurable via flags).
 
@@ -38,7 +39,9 @@ This project follows clean, production-ready Go project design practices:
 │       └── server.go                # HTTP daemon coordinator
 ├── web/
 │   ├── embed.go                     # Standard FS embedded assets
-│   └── index.html                   # Dual-pane single-page application UI
+│   ├── index.html                   # HTML structure skeleton
+│   ├── style.css                    # Custom layout, tree and search pane styles
+│   └── app.js                       # Decoupled SPA client, search logic and highlighting
 ├── install.sh                       # Dynamic local build/install script
 └── md-browser.service               # Systemd user service template
 ```

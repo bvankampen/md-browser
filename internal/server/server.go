@@ -30,6 +30,8 @@ func (s *Server) Start() error {
 	mux.HandleFunc("/api/config", s.handleConfig)
 	mux.HandleFunc("/api/raw", s.handleRaw)
 	mux.HandleFunc("/api/search", s.handleSearch)
+	mux.HandleFunc("/style.css", s.handleStyle)
+	mux.HandleFunc("/app.js", s.handleAppJS)
 	mux.HandleFunc("/", s.handleIndex)
 
 	// Bind to localhost port
@@ -74,6 +76,28 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Write(data)
+}
+
+// handleStyle serves the embedded CSS stylesheet.
+func (s *Server) handleStyle(w http.ResponseWriter, r *http.Request) {
+	data, err := web.FS.ReadFile("style.css")
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Set("Content-Type", "text/css; charset=utf-8")
+	w.Write(data)
+}
+
+// handleAppJS serves the embedded Javascript code.
+func (s *Server) handleAppJS(w http.ResponseWriter, r *http.Request) {
+	data, err := web.FS.ReadFile("app.js")
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
 	w.Write(data)
 }
 

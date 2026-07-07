@@ -18,8 +18,8 @@ This is a golang application which starts up a webserver on localhost. This webs
 
 # Architecture & Tech Stack
 
-- **Backend**: Go standard library (`net/http`, `html/template`, `embed`). Keep it clean and simple.
-- **Frontend**: Responsive split-pane layout using standard CSS Grid/Flexbox and vanilla JavaScript. Avoid complex client-side bundlers.
+- **Backend**: Go standard library (`net/http`, `html/template`, `embed`). Keep it clean and simple. Static custom assets are embedded and served directly from memory.
+- **Frontend**: Responsive split-pane layout using standard CSS Grid/Flexbox and vanilla JavaScript, cleanly decoupled into modular HTML (`index.html`), stylesheet (`style.css`), and application script (`app.js`) files without heavy client-side bundlers.
 - **Navigation**: Dynamically traverse and display the folder structure on the left pane and display the selected rendered markdown on the right pane.
 - **Directory Configuration**: Default to the current working directory as the root, but support setting a different directory path via a CLI flag (e.g., `--dir` or `--directory`).
 - **Browser Autostart**: Automatically open the default web browser on launch to the server URL. Provide a CLI flag (`--disable-open` with default `false`) to turn this off if requested.
