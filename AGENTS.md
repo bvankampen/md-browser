@@ -14,6 +14,7 @@ This is a golang application which starts up a webserver on localhost. This webs
 - **Read-Only**: The application is strictly a read-only viewer. Do not implement any editing, writing, or deleting functionality on the filesystem.
 - **Serving Local Assets**: Serve local assets (such as images, diagrams, or assets linked inside Markdown documents) securely. Translate relative references relative to the active document's parent directory and route requests through the safe-path traversal verification check before delivery.
 - **Empty Directories UI**: When "Show all files" is disabled, any subdirectory containing no GFM Markdown files must display `(no md)` inline next to the directory name in italicized, muted text, and standard nested empty labels within them must be hidden.
+- **Git Operations**: Only commit, amend, push, or create PRs when explicitly requested by the user.
 
 # Architecture & Tech Stack
 
